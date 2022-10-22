@@ -1,0 +1,877 @@
+A Low False Negative Filter for Detecting Rare Bird Species from Short Video
+Segments using a Probable Observation Data Set-based EKF Method ∗
+
+Dezhen Song and Yiliang Xu
+Department of Computer Science and Engineering,
+Texas A&M University, College Station, TX 77843
+{dzsong, ylxu}@cse.tamu.edu
+
+Abstract
+
+We report a new ﬁlter for assisting the search for rare
+bird species. Since a rare bird only appears in front of
+the camera with very low occurrence (e.g. less than ten
+times per year) for very short duration (e.g. less than a
+fraction of a second), our algorithm must have very low
+false negative rate. We verify the bird body axis infor-
+mation with the known bird ﬂying dynamics from the
+short video segment. Since a regular extended Kalman
+ﬁlter (EKF) cannot converge due to high measurement
+error and limited data, we develop a novel Probable Ob-
+servation Data Set (PODS)-based EKF method. The
+new PODS-EKF searches the measurement error range
+for all probable observation data that ensures the con-
+vergence of the corresponding EKF in short time frame.
+The algorithm has been extensively tested in experi-
+ments. The results show that the algorithm achieves
+95.0% area under ROC curve in physical experiment
+with close to zero false negative rate.
+
+Introduction
+Our group focuses on developing autonomous observatories
+to assist nature scientists to search rare birds. In our recent
+project, a camera was installed in the middle of a forest in
+Bayou DeView in eastern Arkansas, running 24 hours a day,
+to assist the ornithologists to search for the thought-to-be-
+extinct ivory-billed woodpecker (IBWO) (see Fig. 1).
+
+Three critical conditions must be met for the searching
+task. First, a rare bird only appears in front of the camera
+with very low occurrence (e.g. less than ten times per year)
+for very short duration (e.g.
+less than a fraction of a sec-
+ond), our algorithm must have very low false negative rate.
+Second, since the ﬁnal veriﬁcation has to be performed by
+human experts, it is necessary to reduce the huge data vol-
+ume to a manageable size, which also means that the ﬁlter
+can tolerate a less ideal false positive rate. Third, the system
+must be easy to setup in the forest. Due to power and com-
+munication constraints, a single camera is preferred because
+
+∗This work is supported in part by NSF CAREER program un-
+der IIS-0643298 and MRI program under CNS-0923203, in part by
+Arkansas Electric Cooperatives Corp., and in part by U.S. Fish and
+Wildlife Service.
+Copyright c(cid:13) 2010, Association for the Advancement of Artiﬁcial
+Intelligence (www.aaai.org). All rights reserved.
+
+Figure 1: An example of a short video sequence of a ﬂying
+bird that is captured in Bayou DeView in eastern Arkansas.
+It superimposes the segmented bird images from consecutive
+video frames on the top of the background frame.
+
+it does not require the precise calibration and synchroniza-
+tion as dislocated stereo rigs would for distant birds.
+
+Fig. 1 shows the input of the problem is a short segmented
+motion sequence of an object. The output of the problem is
+to determine whether the motion sequence is caused by a
+targeted bird species. We verify the bird body axis infor-
+mation with the known bird ﬂying dynamics. Since a reg-
+ular extended Kalman ﬁlter (EKF) cannot converge due to
+the high measurement error and the limited observation data
+due to the high ﬂying speed of the bird (e.g.
+the sample
+bird sequence in Fig. 1 only contains seven data points), we
+develop a probable observation data set (PODS)-based EKF
+and an approximate computation scheme. The new PODS-
+EKF searches the measurement error range for all probable
+observation data that ensure the convergence of the corre-
+sponding EKF. The ﬁltering is based on whether the PODS
+is non-empty and the corresponding velocity is within the
+known bird ﬂying velocity proﬁle. We show that the PODS-
+EKF theoretically ensures a zero false negative rate. We
+have evaluated the ﬁltering algorithm using both the sim-
+ulated data and ﬁeld test data.
+
+Related Work
+Animal detection and recognition using video images has
+been a active research direction. Most of the existing ap-
+proaches build appearance models of animals by silhou-
+
+1619Proceedings of the Twenty-Fourth AAAI Conference on Artificial Intelligence (AAAI-10)
+
+
+
+***page1 finished***
+
+tracking and recognition such as vehicles, pedestrians etc.
+However, there is no existing work regarding how to detect
+a ﬂying bird. Most existing works assume rigid objects and
+do not worry about the convergence of Kalman ﬁlter because
+an ample amount of observation data is available. Unfor-
+tunately, those conditions do not hold for the ﬁltering of a
+highly-dynamic and high-speed ﬂying bird.
+
+Our group has developed systems and algorithms (Song
+2009; Song, van der Stappen, and Goldberg 2006; Song and
+Goldberg 2007) for networked robotic cameras for a va-
+riety of applications such as construction monitoring, dis-
+tance learning, panorama construction, and nature observa-
+tion. Our previous work (Song et al. 2008) details how to
+build an autonomous nature observation system using mo-
+tion detection. We learn that mere motion detection cannot
+save the biologists from the herculean task of image sorting,
+which inspires this work.
+
+Problem Description
+Our system is a monocular vision system with a narrow ﬁeld
+of view (FOV). The position of objects with respect to the
+camera is based on a 3D Cartesian camera coordinate system
+(CCS) with its origin at the camera center as shown in Fig. 2.
+The x-axis and y-axis of the CCS are parallel to the u-axis
+and the v-axis of the image coordinate system, respectively.
+From the knowledge provided by ornithologists, we know
+that a ﬂying bird is usually an adult bird. A bird does not
+change its size once reaching its adulthood. Birds of the
+same species share a similar size and ﬂying speed range.
+This biological information allows us to distinguish the tar-
+geted species from other moving objects.
+
+Assumptions
+To establish the bird detection problem, we also have the
+following assumptions,
+
+• A ﬁxed and pre-calibrated camera is used. With a cali-
+brated camera and without loss of generality, we can al-
+ways transform camera intrinsic parameter matrix Kc to
+diag(f, f, 1), where f is the focal length of the camera in
+units of pixel side length. ICS must have its origin located
+on the principal axis (z axis) of CCS. Hence we have per-
+spective project matrix Pc = [Kc|03×1].
+
+• There is only one bird in the image sequence. If there are
+multiple birds in the scene, we assume each individual
+bird sequence has been isolated out using multiple object
+tracking techniques (Yilmaz, Javed, and Shah 2006).
+
+• The bird is ﬂying along a straight line with a constant
+speed when captured by the camera. This assumption usu-
+ally holds considering a fast ﬂying bird can only stay in
+the FOV for less than a second.
+
+Inputs and Output
+The input of the problem is a sequence of n images which
+contain a moving object of any type. Each frame is time-
+stamped. Based on the information from ornithologists, we
+know the body length lb and the ﬂying speed range V =
+[vmin, vmax] of the targeted bird species. The output is to
+
+Figure 2: An illustration of bird ﬁltering. The motion se-
+quence of the bird can be used to extract a set of moving
+line segments that correspond to the body axis of the bird.
+The segmentation error of the end of body axis is uniformed
+distributed in the u-v image plane and can be represented as
+an inverse pyramid when the error range is back-projected
+from the camera center to the 3D space.
+
+ette/contour (Sebastian, Klein, and Kimia 2004), 2D kine-
+matic chains of rectangular segments (Ramanan, Forsyth,
+and Barnard 2006) etc. A known set of animal images are
+used to train and test the model using techniques such as
+clustering (Ramanan, Forsyth, and Barnard 2006), template
+matching (Sebastian, Klein, and Kimia 2004) etc. Different
+from this class of techniques, a large learning set is unavail-
+able for our applications such as detecting rare birds.
+
+Periodic motion detection (Ran et al. 2007; Briassouli
+and Ahuja 2007) assumes objects, such as animals, with pe-
+riodic motion pattern and applies time-frequency analysis
+(Briassouli and Ahuja 2007) or image sequence alignment
+(Laptev et al. 2005) to capture the periodicity. Applications
+of periodic motion detection have been found to vehicles,
+humans, and even canines. However, recognizing birds is
+different because a bird ﬂying pattern combines both glid-
+ing and wing-ﬂapping and the periodic motion assumption
+does not hold.
+
+Recently, the 3D structure inference using monocular vi-
+sion has drawn increasing research attention. Ribnick et al.
+(Ribnick, Atev, and Papanikolopoulos 2009) propose an al-
+gorithm for estimating the 3D parabolic trajectories of pro-
+jectiles in monocular views. Saxena et al.
+(Saxena, Sun,
+and Ng 2008) propose a learning algorithm that estimates
+3D structures of a static scene based on a single still image.
+The work models the scene with sets of planes using Markov
+Random Field (MRF) and trains the model based on depth
+cues such as texture variations & gradients, color, haze, and
+defocus etc. Different from these works, our approach deals
+with a highly dynamic object (i.e., the bird) and its trajectory
+is not necessarily parabolic.
+
+Visual tracking has been a active research area. Various
+techniques have been proposed and a recent survey can be
+found in (Yilmaz, Javed, and Shah 2006). The fundamen-
+tal technique we used is the extended Kalman ﬁler.
+(Ex-
+tended) Kalman ﬁlter (Spinello, Triebel, and Siegwart 2008)
+and their variations can be viewed as model-based ﬁltering
+methods that verify the prior known dynamic models of the
+objects. It has seen a wide range of applications in object
+
+1620
+
+
+
+***page2 finished***
+
+determine if the motion sequence is caused by the targeted
+bird species or not.
+
+EKF to track the states of the moving object. Eqs. (2) and
+(3) can be re-written in a discrete-time form,
+
+Modeling a Flying Bird
+To develop a bird ﬁlter, the key is to extract the bird ﬂy-
+ing dynamic information from the segmented bird motion
+sequence and associate the information with the known ﬂy-
+ing models and the prior information regarding the targeted
+species. As detailed in (Song et al. 2008), we segment the
+moving object from its background and obtain a motion se-
+quence. The most important bird ﬂying information is the
+body axis. Based on the information provided by ornithol-
+ogists and our data, we know that a ﬂying bird maintains
+a ﬁxed body length during ﬂight and birds from the same
+species share a similar size. Let us deﬁne the bird body line
+segment in the image frame as
+
+z = [uh, vh, ut, vt]T ,
+(1)
+where (uh, vh) is the head position and (ut, vt) is the tail
+position. From z, we can compute the body axis orientation
+θ = atan2(uh − ut, vh − vt), and the body axis length l =
+(uh − ut)2 + (vh − vt)2. Note that l is different from lb.
+l is the projection of lb on the image plane and is in unit of
+p
+pixel. Since the bird body axis is almost parallel to the bird
+ﬂying trajectory as in Fig. 2, we can extract the bird body
+axis using approaches such as Hough transform, detailed in
+(Song et al. 2008).
+
+To determine whether the motion information is caused
+by the targeted species, we need to establish a bird ﬂying
+model in the image frame. Let p = [x, y, z]T denote the
+head position of the bird body axis and v = [ ˙x, ˙y, ˙z]T denote
+its velocity in the CCS. Since the bird ﬂies along a straight
+line with a constant velocity, we have
+
+˙x = [ ˙p, ˙v]T = [ ˙x, ˙y, ˙z, 0, 0, 0]T = [v, 0]T ,
+(2)
+where the state variable x = [p, v]T ∈ R6 describes the
+position and velocity of the bird head. Deﬁne ptail =
+[xt, yt, zt]T as the position of the bird tail and we have
+ptail = [x − ˙xlb/kvk, y − ˙ylb/kvk, z − ˙zlb/kvk]T .
+
+As illustrated in Fig. 2, the relationship between the mea-
+surement data z deﬁned in (1) and the corresponding state x
+can be described using the pin-hole camera model,
+
+f x/z
+f y/z
+f xt/zt
+f yt/zt
+
+f x/z
+f y/z
+f xkvk−lb ˙x
+zkvk−lb ˙z
+f ykvk−lb ˙y
+zkvk−lb ˙z
+
+
+
+
+
+
+
+
+
+
+
+
+= 
+
+
+
+
+z = 
+
+
+
++ w := h(x) + w,
+
+(3)
+where h(·) is usually called measurement function and w
+represents the measurement noise.
+
+Probable Observation Data Set-based EKF
+
+Extended Kalman Filter
+The nonlinear dynamic system described by (3) captures the
+prior known information regarding the targeted species. If
+the motion is caused by the targeted species, then the bird
+body axis information should follow the nonlinear dynamic
+system described by (3), which can be validated using an
+
+x(k + 1) = A(k + 1)x(k) + q(k),
+(4a)
+z(k) = h(x(k)) + w(k),
+(4b)
+where q(k) ∈ R6 and w(k) ∈ R4 represent the white Gaus-
+sian transition and measurement noises at time k with co-
+variance matrix Q(k) ∈ R6×6 and W (k) ∈ R4×4, respec-
+tively, q(k) ∼ N (0, Q(k)), w(k) ∼ N (0, W (k)), and
+A(k + 1) is the state transition matrix at time k + 1,
+
+A(k + 1) =
+
+I3×3 ∆T (k + 1|k)I3×3
+03×3
+
+I3×3
+
+(cid:20)
+
+,
+
+(cid:21)
+
+where ∆T (k + 1|k) is the time interval between time k
+and time k + 1. We deﬁne P ∈ R6×6 as the covari-
+ance matrix for the state variable x. The EKF for the sys-
+tem in (4) can be implemented as a state prediction step
+ˆx(k|k − 1), ˆP (k|k − 1) and a measurement correction step
+ˆx(k|k), ˆP (k|k) recursively as follows,
+ˆx(k|k − 1) = A(k)ˆx(k − 1|k − 1),
+ˆP (k|k − 1) = A(k) ˆP (k − 1|k − 1)AT (k) + Q(k),
+ˆP (k|k − 1)H T (k)
+H(k) ˆP (k|k − 1)H T (k) + W (k)
+ˆx(k|k) = ˆx(k|k − 1) + K(k)(z(k) − h(ˆx(k|k − 1))),
+
+K(k) =
+
+(5b)
+
+(5c)
+
+(5a)
+
+,
+
+(5d)
+
+ˆP (k|k) = (I6×6 − K(k)H(k)) ˆP (k|k − 1),
+
+(5e)
+where K(k) ∈ R6×4 is the “Kalman gain” and H(k) ∈
+R4×6 is the Jacobian matrix of h(·) in (3) with respect to x.
+Recall that ˆx(k|k) = [ˆp(k|k), ˆv(k|k)]T . For the n-image
+motion sequence, the predicted ˆx(n|n) contains the bird ve-
+locity ˆv(n|n). The decision of accepting (indicated as “1”)
+or rejecting (indicated as “0”) the moving object as a mem-
+ber of the targeted species is deﬁned as the following indi-
+cator function,
+
+I(Z1:n) =
+
+1 if kˆv(n|n)k ∈ V and EKF converges,
+0 otherwise,
+
+(cid:26)
+
+(6)
+
+where Z1:n = {z(1), z(2), ..., z(n)} is the set of body axes
+across n frames. Z1:n is also referred to as the observed data.
+Eq. (6) basically states that the moving object is a member
+of the targeted species if the EKF converges to the desired
+absolute velocity range V.
+
+EKF Convergence
+
+As indicated in (6), automatically determining whether the
+EKF converges or not is necessary. Deﬁne the estimated
+state set as X1:n = {ˆx(1|1), ˆx(2|2), ..., ˆx(n|n)}. Since ve-
+locity convergence implies position convergence and ˆv(k|k)
+converges means kˆv(k|k) − ˆv(k − 1|k − 1)k → 0, we de-
+termine the convergence of the EKF by inspecting
+
+ε(X1:n) =
+
+ω(k)kˆv(k|k) − ˆv(k − 1|k − 1)k,
+
+n
+
+Xk=2
+
+where ω(k) > 0 is the weighting factor at time k. ω(k) is
+a monotonically-increasing function of k, which gives more
+
+1621
+
+
+
+***page3 finished***
+
+kˆvk
+
+weight to later states. ω(k) is usually pre-generated using
+simulated random inputs across the entire possible parame-
+ter range without measurement error (i.e. W (k) = 04×4).
+Setting W (k) = 04×4 is to ensure EKF convergency, which
+will be explained later in the paper. Denote kˆvk as the speed
+of the bird known in each trial of simulation. We repeat
+the EKF with randomized inputs for over 106 times to ob-
+serve the quantity of
+kˆv(k|k)−ˆv(k−1|k−1)k , which is the in-
+verse of the relative speed change at time k. We choose
+the weighting factor as ω(k) = E
+,
+(cid:17)
+where function E(·) computes the expected value over all
+simulation trials for the targeted species. When the EKF
+converges, kˆv(k|k) − ˆv(k − 1|k − 1)k appears as a decreas-
+ing function of k after a few initial steps. Correspondingly,
+ω(k) is an increasing function of k. If kˆv(k|k) − ˆv(k −
+1|k − 1)k → 0, then ε(X1:n) is smaller than that of the case
+kˆv(k|k) − ˆv(k − 1|k − 1)k 9 0. Therefore, to determine
+the EKF convergence, we employ a threshold δ on ε(X1:n)
+and introduce a new indicator variable,
+
+kˆvk
+kˆv(k|k)−ˆv(k−1|k−1)k
+
+(cid:16)
+
+IEKF(X1:n) =
+
+1 (converge) if ε(X1:n) < δ,
+0 otherwise.
+
+(cid:26)
+
+(7)
+
+Then the decision-making in (6) is re-written as,
+
+I(Z1:n) =
+
+1 if kˆv(n|n)k ∈ V and IEKF(X1:n) = 1,
+0 otherwise.
+
+(cid:26)
+
+(8)
+
+The underlying condition for (8) to be an effective bird ﬁl-
+tering mechanism is that if observation Z1:n is caused by the
+targeted bird species then the convergence of the EKF has
+to be guaranteed. Unfortunately, the condition usually does
+not hold due to two reasons: n is small and the measurement
+noise w(k) is too big. Due to the fact that the bird ﬂies very
+fast, the bird usually stays in the camera FOV for less than 1
+second and thus n < 11 for most cases in our experiments.
+The measurement noise covariance matrix W (k) is directly
+determined by the image segmentation error. Even at 1 pixel
+level, its relative range is 4% for a bird body length of 25
+pixels. For the nonlinear deterministic discrete time system
+in (4), the large W (k) means the EKF either fails to con-
+verge or converges very slowly according to (Boutayeb, Ra-
+faralahy, and Darouach 1997). The performance of the bird
+ﬁlter would be close to that of a random guess if the simple
+EKF implementation is used, which makes it useless.
+
+Probable Observation Data Set-based EKF Method
+Since simply applying EKF cannot address the bird ﬁltering
+problem, a new approach is required. Let us ﬁrst assume
+there is no measurement noise (i.e. W (k) = 04×4) and no
+state transition noise Q(k) = 06×6. At each time k, the EKF
+in (5) is a system of equations with four inputs, which is the
+dimensionality of z, and six outputs, which is the dimension-
+ality of x. We also know that matrix A introduces two con-
+straints: the constant speed and the linear trajectory. There-
+fore, the equation system can be solved within one step. The
+convergence of the EKF is not a problem when there is no
+noise and the bird does not ﬂy in a degenerated trajectory
+(i.e. ﬂying along the camera optical axis). Although usually
+Q(k) 6= 06×6, the state transition noise q(k) is often very
+
+small, which leads to the following lemma,
+
+Lemma 1. The EKF described in (5) converges when
+W (k) = 04×4.
+
+Proof. We skip the proof because our system in (4) is a lin-
+ear time-invariant discrete time system with a nonlinear ob-
+server. The convergence of its EKF can be proved by the
+results in (Boutayeb, Rafaralahy, and Darouach 1997).
+
+At ﬁrst glance, this result is useless because we cannot get
+rid of the measurement noise. However, this result opens the
+door to a new approach. Deﬁne the observation data without
+measurement error as Z1:n∗ = [z∗(1), z∗(2), ..., z∗(n)]T .
+Although we do not have Z1:n∗, we know it is within the
+segmentation error range of Z1:n. For the k-th image, the
+measurement data is z(k) = [uh(k), vh(k), ut(k), vt(k)]T .
+Deﬁne the error-free measurement data at time k as z∗(k) =
+[uh∗(k), vh∗(k), ut∗(k), vt∗(k)]T . Let us deﬁne the segmen-
+tation error is within τ pixels. The value of τ is usu-
+ally small since the camera is set with short shuttle time
+and small iris. Deﬁne S1(k) = [uh(k) ± τ ], S2(k) =
+[vh(k) ± τ ], S3(k) = [ut(k) ± τ ], S4(k) = [vt(k) ± τ ],
+and the segmentation error range at time k as S(k). Hence,
+z∗(k) ∈ S1(k) × S2(k) × S3(k) × S4(k) = S(k).
+Deﬁnition 1. Deﬁne the probable observation data set
+(PODS) Z1:n as the set of observation data Z1:n that satis-
+ﬁes the condition for the EKF convergence as in (7), Z1:n =
+{Z1:n|z(k) ∈ S(k), k = 1, ..., n, and ε(X1:n) < δ}.
+
+Obviously Z1:n∗ ∈ Z1:n. Each Z1:n ∈ Z1:n is likely
+to be Z1:n∗ and hence it is named as the probable observa-
+tion data. For a given PODS Z1:n, there is a correspond-
+ing estimated state set X1:n, which contains a set of all
+possible estimated velocities at time n, which is deﬁned as
+V = {kˆv(n|n)k such that X1:n ∈ X1:n}. Then the decision
+making in (8) can be written as,
+
+I(Z1:n) =
+
+(cid:26)
+Hence we have the following lemma,
+
+1 if V ∩ V 6= ∅ and Z1:n 6= ∅,
+0 otherwise.
+
+Lemma 2. If the non-degenerated observation data Z1:n is
+triggered by a bird of the targeted species, then I(Z1:n) = 1.
+
+Proof. Since Z1:n is triggered by the targeted species, its
+corresponding Z1:n∗ ensures the convergence of the EKF
+according to Lemma 1. Deﬁne X1:n∗ as the corresponding
+estimated states for Z1:n∗. Hence ε(X1:n∗) < δ → Z1:n 6=
+∅, because Z1:n∗ ∈ Z1:n. Following our naming convention,
+ˆv∗(n|n) is the velocity component of X ∗(n|n) ∈ X1:n∗.
+Since the observation data is not degenerated, kˆv∗(n|n)k ∈
+V. We also know kˆv∗(n|n)k ∈ V by deﬁnition, V ∩ V 6= ∅
+holds. Since both conditions are satisﬁed, I(Z1:n) = 1.
+
+Lemma 2 ensures that the PODS-EKF method theoreti-
+cally has a zero false negative rate, which is a very desirable
+property for the purpose of searching for rare bird species.
+
+1622
+
+
+
+***page4 finished***
+
+Approximate Computation for PODS-EKF
+Computing the PODS Z1:n is nontrivial. Note that we actu-
+ally do not need Z1:n because all we need to know is whether
+the conditions V ∩ V 6= ∅ and Z1:n 6= ∅ hold or not. This
+allows an approximation method. For a given observation
+Z1:n, we deﬁne the following optimization problem,
+
+Z1:n = arg
+
+min
+z(k)∈S(k);k=1,...,n
+
+ε(X1:n),
+
+(9)
+
+e
+
+e
+
+Z1:n is the optimal solution to the minimization
+where
+problem above. Actually, (9) is a typical nonlinear opti-
+mization problem with the error range z(k) ∈ S(k); k =
+X1:n =
+1, ..., n and the EKF in (5) as constraints. Deﬁne
+x(n|n)} as the estimated states corre-
+x(1|1),
+{
+sponding to
+e
+
+Z1:n. We have the following lemma,
+
+x(2|2), ...,
+
+e
+
+e
+
+e
+
+Lemma 3. ε(
+e
+
+X1:n) > δ ⇐⇒ Z1:n = ∅.
+
+e
+
+Proof. Since (9) is a minimization problem,
+minimal ε(X1:n), namely, ε(
+δ, ∀X1:n ∈ X1:n ⇐⇒ Z1:n = ∅.
+
+X1:n yields the
+X1:n) > δ ⇐⇒ ε(X1:n) >
+e
+
+e
+It is worth mentioning that this method is an approxi-
+mation in computation because the nonlinear programming
+solver often falls in a local minimum. Now we want to de-
+termine whether V ∩ V 6= ∅. If we view the EKF output
+ˆv(n|n) as a function of Z1:n, it is continuous and differen-
+tiable with respect to each entry in Z1:n. Since Z1:n is actu-
+ally very small, the variance of the speed in the set V is very
+small. Instead of comparing V to V, we select a value in V
+v(n|n) as the velocity compo-
+to check if it is in V. Deﬁne
+v(n|n)k
+nent of
+e
+because it is readily available. Therefore, the approximation
+v(n|n)k ∈ V ⇐⇒ V ∩ V 6= ∅. Due to the approx-
+is k
+imation, the zero false negative rate cannot be guaranteed.
+However, the false negative rate is still very low under the
+approximation as shown in the experiments.
+
+X1:n. The chosen value is the k
+
+x(n|n) ∈
+
+e
+
+e
+
+e
+
+e
+
+Experiments
+We have implemented the PODS-EKF algorithm and tested
+the algorithm on both the simulated data and the real data
+from ﬁeld experiments. The computer used in the test is a
+desktop PC with a Pentium(R) D 3.20GHz CPU and 2GB
+RAM. The PC runs Windows XP. The PODS-EKF has been
+implemented using Matlab 7. We choose Arecont Vision
+3100 high resolution networked video cameras as the imag-
+ing devices. The camera runs at 11 fps with a resolution of 3
+Mega-pixel per frame. The lens for the camera is a Tamron
+auto iris vari-focus lens with a focal length range of 10-40
+mm. We adjust the lens to ensure a 20◦ horizontal FOV.
+
+Simulation
+We ﬁrst test our PODS-EKF using the simulated inputs.
+An intermediate step is to analyze the convergence of the
+EKF. We generate 106 random 3D bird trajectories with con-
+stant velocity, which intersect with the conic camera FOV.
+The trajectory segment intersecting with the camera FOV
+projects back to the image plane as the visual measurements.
+
+Table 1: Species used in the experiments
+V (km/h)
+Species
+[29, 40] 2
+House Sparrow
+[24, 56] 4
+Rock pigeon
+[32, 64] 6
+Ivory-billed woodpecker
+
+lb (cm)
+15 1
+33 3
+48 5
+
+We simulate three types of birds: house sparrows, rock pi-
+geons, and IBWOs (Table 1). The three species are small,
+medium, and large in size, respectively. Their speeds range
+from 24 to 64 km/h and cover the range of the most of
+existing bird species. The initial state ˆx(0|0) is estimated
+by solving the linear equation system in (3) with the ﬁrst
+at least 3 observations and an additional constraint/guess
+kˆv(0|0)k = E(V). Details are omitted for space constraint.
+Fig. 3(a) shows the EKF convergence for rock pigeon in
+different conﬁgurations by tracking the signal kˆv(k|k)− ˆvk,
+where ˆv is the true bird velocity known in simulation. It is
+shown that without image noise, the EKF nicely converges
+as Lemma 1 points out. With the image noise (τ = 1 pixel),
+the EKF diverges with both increasing signal mean and vari-
+ance. The PODS-EKF on the other hand, ensures the EKF
+to converge very close to the noise-free case. This validates
+the foundation of our PODS-EKF method.
+
+(a)
+
+(b)
+
+Figure 3: (a) Convergence for different EKF conﬁgurations
+based on simulated rock pigeon data. (b) False positive (FP)
+and false negative (FN) rates with different δ in simulation.
+
+Now we are ready to analyze the performance of PODS-
+EKF. We generate a set of random inputs to mimic three
+birds as in Table 1. We set a speed range from 15 to 85 km/h
+with an incremental step of 5 km/h and a bird size range
+from 10 to 60 cm with an incremental step of 2 cm. We set
+the segmentation error range τ = 1 pixel. For each setting
+of the input data, 20 trials are carried out. The average com-
+putation time for each trial is 5.6 seconds. Fig. 3(b) demon-
+strates how the rates of false positive (FP) and false negative
+(FN) change according to δ. After δ > 1.0 × 106, the FN
+rates can be reasonably controlled to be less than 10%, 4%
+and 1%, for house sparrow, rock pigeon and IBWO, respec-
+tively. This conﬁrms that the approximation computation is
+reasonable. The reason PODS-EKF works worst for house
+
+1http://en.wikipedia.org/wiki/House Sparrow.
+2http://www.garden-birds.co.uk/information/ﬂight.htm
+3http://www.allaboutbirds.org/guide/Rock Pigeon/lifehistory
+4http://www.ct.gov/DEP/cwp/view.asp?A=2723&Q=326076
+5http://animals.nationalgeographic.com/animals/birds/ivory-
+
+billed-woodpecker.html
+
+6http://news.mongabay.com/2007/0217-ibw.html
+
+1623
+
+
+
+***page5 finished***
+
+sparrow is that with the same FOV in the simulation, the
+smallest house sparrow leads to the highest noise-signal ra-
+tio, indicated as E(τ /l) in Fig. 3(b). Our PODS-EKF is
+not biased for particular bird. To cope with small birds, we
+can increase the focal length to reduce E(τ /l). The FP rates
+of the PODS-EKF converge to 23%, 45% and 38%, respec-
+tively, which are a little high. However, considering that we
+are comparing the targeted bird with birds similar in size
+and speed, this result is not surprising.
+In fact, the algo-
+rithm should behave better in real tests where the noise from
+the moving objects has much larger range in both size and
+speed. Furthermore, the monocular system has its problem
+in detecting objects with their trajectories close to the cam-
+era optical axis, which also contributes to the high FP rate.
+
+Physical Experiments
+We have conducted a ﬁeld experiment of detecting ﬂying
+rock pigeons. With a camera setup in the forest in Bayou
+DeView in eastern Arkansas, we have captured 119 events
+with n ≥ 8 for each motion sequence. 29 of the sequences
+are rock pigeons while the other 90 are not pigeons, which
+are image sequences of typical environment noises such as
+falling leaves, ﬂying insects, and other bird species. Fig. 4(a)
+shows how the FN and FP rates change according to differ-
+ence δ. The convergence threshold is set as δ = 1.35 × 106.
+It is shown that our algorithm can achieve extremely low FN
+rate (0/29 = 0%). This is very important for the purpose of
+ﬁnding rare bird species. The FP rate is 9/90 = 10%, which
+is better than that of the simulation results. This is due to
+the fact that it is much easier for the algorithm to distin-
+guish the targeted species from noises such as ﬂying insects
+and falling leaves in real experiment rather than from similar
+birds as in simulation above.
+
+Fig. 4(b) illustrates the ROC curves from both the sim-
+ulation and physical experiment for the rock pigeon. The
+convergence threshold range is [4.6×103, 1.5×106] for sim-
+ulation and [1.8 × 104, 3.3 × 106] for experiment. The areas
+under the ROC curve are 91.5% and 95.0% for simulation
+and physical experiment, respectively, which again shows
+the algorithm performs better in physical experiments.
+
+We apply the algorithm to our IBWO search ﬁeld data
+(Oct. 2006 - Oct. 2007). After initial motion detection ﬁl-
+tering as in (Song et al. 2008), we reduce the total video
+data of 29.41 TB to 27.42 GB, which is still prohibitively
+huge for human experts. After applying the PODS-EKF, we
+eventually reduce the data volume to 146.7 MB (about 960
+images) with close to zero false negative. The overall reduc-
+tion rate is 99.9995%.
+
+Conclusion
+We reported our development of a bird ﬁltering algo-
+rithm. We developed a novel Probable Observation Data
+Set (PODS)-based EKF method to ensure the convergence
+of the EKF under insufﬁcient and noisy measurement data.
+The algorithm has been extensively tested using both simu-
+lated inputs and physical experiments. The results showed
+that the PODS-EKF bird ﬁlter has reduced the video data by
+99.9995% with close to zero false negative and 95.0% area
+under the ROC curve in physical experiments.
+
+(a)
+
+(b)
+
+Figure 4: (a) Physical experiment for rock pigeons. (b) The
+ROC curves for both the simulation and the physical exper-
+iment. The corresponding areas under the ROC curves are
+91.5% and 95.0%, respectively.
+
+References
+Boutayeb, M.; Rafaralahy, H.; and Darouach, M. 1997. Conver-
+gence analysis of the extended kalman ﬁlter used as an observer for
+nonlinear deterministic discrete-time systems. IEEE Transactions
+on Automatic Control 42(4):581–586.
+Briassouli, A., and Ahuja, N. 2007. Extraction and analysis of
+multiple periodic motions in video sequences. IEEE Transactions
+on Pattern Analysis and Machine Intelligence 29(7):1244–1261.
+Laptev, I.; Belongie, S. J.; P´erez, P.; and Wills, J. 2005. Peri-
+odic motion detection and segmentation via approximate sequence
+alignment. In IEEE International Conference on Computer Vision
+(ICCV), 816–823.
+Ramanan, D.; Forsyth, D.; and Barnard, K. 2006. Building models
+of animals from video. IEEE Transactions on Pattern Analysis and
+Machine Intelligence 28(8):1319–1334.
+Ran, Y.; Weiss, I.; Zheng, Q.; and Davis, L. S. 2007. Pedestrian
+International Journal of
+detection via periodic motion analysis.
+Computer Vision (IJCV) 71(2):143–160.
+Ribnick, E.; Atev, S.; and Papanikolopoulos, N. P. 2009. Esti-
+mating 3d positions and velocities of projectiles from monocular
+views. IEEE Transactions on Pattern Analysis and Machine Intel-
+ligence 31(5):938–944.
+Saxena, A.; Sun, M.; and Ng, A. 2008. Make3d: Depth perception
+In Proc. of The AAAI Conference on
+from a single still image.
+Artiﬁcial Intelligence, 1571–1576.
+Sebastian, T.; Klein, P.; and Kimia, B. 2004. Recognition of shapes
+by editing their shock graphs. IEEE Transactions on Pattern Anal-
+ysis and Machine Intelligence 26(5):550–571.
+Song, D., and Goldberg, K. 2007. Approximate algorithms for a
+collaboratively controlled robotic camera. IEEE Transactions on
+Robotics 23(5):1061–1070.
+Song, D.; Qin, N.; Xu, Y.; Kim, C. Y.; Luneau, D.; and Goldberg,
+K. 2008. System and algorithms for an autonomous observatory
+assisting the search for the ivory-billed woodpecker. In IEEE In-
+ternational Conference on Automation Science and Engineering.
+Song, D.; van der Stappen, F.; and Goldberg, K. 2006. Exact
+algorithms for single frame selection on multi-axis satellites. IEEE
+Transactions on Automation Science and Engineering 3(1):16–28.
+Song, D. 2009. Sharing a Vision: Systems and Algorithms for
+Collaboratively-Teleoperated Robotic Cameras. Springer.
+Spinello, L.; Triebel, R.; and Siegwart, R. 2008. Multimodal peo-
+ple detection and tracking in crowded scenes. In Proc. of The AAAI
+Conference on Artiﬁcial Intelligence.
+Yilmaz, A.; Javed, O.; and Shah, M. 2006. Object tracking: A
+survey. ACM Computing Surveys 38(4):1–45.
+
+1624
+
+
+
+***page6 finished***
+

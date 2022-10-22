@@ -1,0 +1,1075 @@
+A Decentralised Coordination Algorithm for Mobile Sensors
+
+Ruben Stranders, Francesco Maria Delle Fave, Alex Rogers and Nicholas R. Jennings
+{rs06r,fmdf08r,acr,nrj}@ecs.soton.ac.uk
+School of Electronics and Computer Science, University of Southampton, UK
+
+Abstract
+
+We present an on-line decentralised algorithm for coordinat-
+ing mobile sensors for a broad class of information gathering
+tasks. These sensors can be deployed in unknown and pos-
+sibly hostile environments, where uncertainty and dynamism
+are endemic. Such environments are common in the areas
+of disaster response and military surveillance. Our coor-
+dination approach itself is based on work by Stranders et
+(2009), that uses the max-sum algorithm to coordinate
+al.
+mobile sensors for monitoring spatial phenomena.
+In par-
+ticular, we generalise and extend their approach to any do-
+main where measurements can be valued. Also, we intro-
+duce a clustering approach that allows sensors to negotiate
+over paths to the most relevant locations, as opposed to a set
+of ﬁxed directions, which results in a signiﬁcantly improved
+performance. We demonstrate our algorithm by applying it
+to two challenging and distinct information gathering tasks.
+In the ﬁrst–pursuit-evasion (PE)–sensors need to capture a
+target whose movement might be unknown. In the second–
+patrolling (P)–sensors need to minimise loss from intrusions
+that occur within their environment. In doing so, we obtain
+the ﬁrst decentralised coordination algorithms for these do-
+mains. Finally, in each domain, we empirically evaluate our
+approach in a simulated environment, and show that it outper-
+forms two state of the art greedy algorithms by 30% (PE) and
+44% (P), and an existing approach based on the Travelling
+Salesman Problem by 52% (PE) and 30% (P).
+
+1 Introduction
+Recently, information gathering with autonomous mobile
+sensors, such as unmanned aerial vehicles (UAVs) and
+ground vehicles (UGVs), has received considerable atten-
+tion within the multi-agent system community. This is be-
+cause gathering information in a fast and accurate fash-
+ion is of vital importance in many domains, such as mili-
+tary surveillance and disaster response. Now, while mov-
+ing in an unknown, possibly hostile environment, the sen-
+sors measure speciﬁc features of interest. These include
+tem-
+(but are not limited to) spatial phenomena (e.g.
+perature or water contaminants) (Stranders et al. 2009;
+Krause et al. 2008), or targets moving within the environ-
+ment (Vidal et al. 2001).
+
+Copyright c(cid:13) 2010, Association for the Advancement of Artiﬁcial
+Intelligence (www.aaai.org). All rights reserved.
+
+In this context, the key challenge faced by the sensors
+is the need to coordinate in order to maximise the amount
+of gathered information, since uncoordinated behaviour is
+likely to result in redundant sensor coverage of the environ-
+ment and a waste of sensing resources. Also, given the dy-
+namic and uncertain nature of the environments in which
+they can be deployed, it is necessary for the sensors to be
+able to adapt to unforeseen events. For instance, the detec-
+tion of an evader or attacker requires the sensors to deviate
+from their previous plans and attempt to capture it. Conse-
+quently, sensors need to be able to revise their paths in an
+online fashion. Moreover, given the potentially hostile na-
+ture of their environments, it is possible that sensors fail.
+This, however, should not lead to the mission failure, or a
+severe performance degradation. Instead, the team should
+be robust to individual sensors failing. Consequently, co-
+ordination should be performed in a decentralised fashion,
+since the existence of a central controller would constitute a
+central point of failure.
+
+Recent work has attempted to meet these requirements,
+but falls short of being fully adaptive and decentralised (Me-
+liou et al. 2007; Singh, Krause, and Kaiser 2009) (who com-
+pute informative paths for mobile sensors in a centralised
+fashion), or is geared towards a speciﬁc domain (Stranders
+et al. 2009). The latter propose an adaptive decentralised
+coordination algorithm, that computes coordinated paths us-
+ing the max-sum algorithm (Farinelli et al. 2008) in an on-
+line decentralised fashion. However, whilst being an im-
+provement of earlier work in this area, this algorithm is
+speciﬁcally designed for monitoring spatial phenomena us-
+ing Gaussian processes (GPs), and is therefore not of gen-
+eral use. Moreover, it performs coordination over a set of
+ﬁxed directions, which we show leads to poor performance
+on less-structured graphs (i.e. non-lattice graphs).
+
+Therefore, in this paper, we introduce a general model
+for a broad class of information gathering tasks by mo-
+bile sensors, and build upon and extend the algorithm pro-
+posed by Stranders et al. (2009) for this model. Further-
+more, we signiﬁcantly improve the performance of this ap-
+proach by changing the set of paths over which the sen-
+sors coordinate. Speciﬁcally, instead of simply choosing the
+paths in a number of ﬁxed directions, we adaptively clus-
+ter the sensors’ neighbourhood and plot paths to the most
+relevant positions within each of these clusters. We ap-
+
+874Proceedings of the Twenty-Fourth AAAI Conference on Artificial Intelligence (AAAI-10)
+
+
+
+***page1 finished***
+
+ply our new algorithm to two widely studied problems for
+which no adaptive, decentralised algorithm previously ex-
+isted. The ﬁrst–pursuit-evasion–is characterised by the pres-
+ence of an evader that the sensors need to capture as quickly
+as possible. Many theoretical results exist for the setting
+where the sensors and the evader move on a graph, showing
+that many realistic problem instances are NP-hard (Parsons
+1976; Borie, Tovey, and Koenig 2009; Halvorson, Conitzer,
+and Parr 2009). Therefore, it is unsurprising that computing
+an optimal strategy (even for a single sensor) is intractable
+(Hespanha and Prandini 2002). Consequently, online adap-
+tive, but approximate, algorithms have been developed for
+continuous bounded environments (Bopardikar, Bullo, and
+Hespanha 2008), and environments with an unknown lay-
+out deﬁned by a graph (Hespanha, Kim, and Sastry 1999;
+Vidal et al. 2001). The latter work presents an attrac-
+tive probabilistic approach to modelling the location of
+the evader, but uses two myopic greedy strategies, which,
+whilst being adaptive and robust, can also perform arbitrar-
+ily poorly because of the too limited look-ahead.
+
+The second problem–patrolling–involves (possibly mul-
+tiple) attackers attempting to intrude into the environment.
+Here, the main challenge is to detect and capture possible
+attackers so as to minimise loss from attacks. Again, several
+off-line and centralised optimal algorithms for this problem
+have been proposed, but they either do not scale beyond a
+single sensor (Paruchuri et al. 2007; Basilico, Gatti, and
+Amigoni 2009) or are restricted to speciﬁc types of graphs
+(Agmon, Kraus, and Kaminka 2008). On the other hand, ap-
+proximate techniques have been proposed (Sak, Wainer, and
+Goldenstein 2008) using a ﬁxed patrolling path through the
+environment (based on the Travelling Salesman Problem),
+which do not meet the requirement of adaptiveness and can
+therefore perform poorly in dynamic environments.
+
+By showing that these two problems are instances of our
+general model, we are able to apply our algorithm to them
+and obtain the ﬁrst online decentralised coordination ap-
+proach for both. Moreover, we provide extensive empirical
+evidence that our algorithm outperforms the aforementioned
+state of the art approaches. In doing so, we make the follow-
+ing contributions to the state of the art:
+
+• We extend and generalise the algorithm proposed by
+Stranders et al. (2009) to obtain an online decentralised
+coordination algorithm for mobile sensors for a broad
+class of information gathering tasks. Furthermore, we in-
+troduce an adaptive clustering technique for selecting the
+paths over which to coordinate that leads to signiﬁcantly
+better results.
+
+• We apply our algorithm to pursuit-evasion and patrolling,
+thereby obtaining the ﬁrst online decentralised coordina-
+tion algorithms for these domains.
+
+• In both domains, we benchmark our algorithm against the
+state of the art: the two greedy algorithms proposed by
+Vidal et al.
+(2001) and a ﬁxed path based on the TSP
+(Sak, Wainer, and Goldenstein 2008), and show that our
+algorithm outperforms these by 30% (PE) and 44% (P),
+and 52% (PE) and 30% (P) respectively. Furthermore, we
+show that our adaptive clustering technique results in a
+
+42% performance increase compared to using a ﬁxed set
+of paths as proposed by Stranders et al. (2009).
+
+The remainder of the paper is organised as follows. We de-
+ﬁne the coordination problem in Section 2, and formalise a
+decentralised algorithm to solve it in Section 3. In Section 4
+we deﬁne the two domains that we use to evaluate our algo-
+rithm in Section 5. We conclude in Section 6.
+
+2 The Multi-Sensor Coordination Problem
+In this section, we present a generic model for multi-sensor
+coordination, that subsumes many information gathering
+problems, including monitoring spatial phenomena (Stran-
+ders et al. 2009), patrolling and pursuit-evasion. These
+problems have many properties in common, such as the way
+the physical layout of the environment is modelled, how the
+sensors move, what they sense, and what the value of a mea-
+surement is in the context of the problem domain. We will
+now discuss each of these in turn, and introduce the notation
+used throughout this paper.
+
+• The team of sensors is denoted as S = {1, . . . , n}.
+• The layout of the environment is given by a graph G =
+(V, E), where V denotes the accessible locations embed-
+ded in R2, and E deﬁnes possible movements between
+locations in V .
+
+• Time is discretised into time steps T = {1, 2, . . . }. At
+every step, sensors move to an adjacent location in G and
+take one or more measurements.1
+
+• A measurement is a tuple y = hy(v), y(t), y(m)i where
+y(v) ∈ V is the location and y(t) the time at which y
+is taken, and y(m) is a context dependent measurement.2
+The set of measurements taken at time t is denoted by yt,
+and those taken up to and including t by Yt. Measure-
+ments taken by sensor i are indicated by a superscript, for
+example yi
+t.
+
+• The value of a set of observations yt+1 is given by a func-
+tion f (yt+1, Yt) → R. The speciﬁcation of this function
+depends on the application domain and the goals of the
+sensors within this application domain.3
+
+Furthermore, we assume that localisation is accurate (i.e.
+sensors know which vertex in G they occupy), and that sen-
+sors know function f and graph G.
+
+1Which measurements a sensor can make depends on the prob-
+lem domain. For example, when measuring temperature, a sensor
+at v is only capable of measuring it at v. However, when scanning
+its environment for intruders, it might be able to observe locations
+other than v alone.
+
+2For instance, in the spatial monitoring domain, m is a scalar
+(for example, representing temperature), while in the pursuit-
+evasion and patrolling domains m is a boolean (true iff an attacker
+was detected).
+
+3For example, the coordination algorithm developed by (Stran-
+ders et al. 2009), which is aimed at predicting spatial phenomena,
+deﬁnes the value function f (yt+1|Yt) as the entropy reduction that
+results from taking measurements yt+1. This metric is strongly
+correlated with the accuracy (in terms of root mean squared error)
+of the predictions.
+
+875
+
+
+
+***page2 finished***
+
+Given this problem deﬁnition, the key goal of the sensors
+is now to collect measurements that maximise f . In more
+detail, at each time step t, the sensors have to ﬁnd:
+[y∗
+
+f (yt+1 ∪ . . . ∪ yt+m, Yt)
+
+t+m] = arg max
+
+t+1, . . . , y∗
+
+[yt+1,...,yt+m]
+
+(1)
+subject to the movement constraints imposed by G. In other
+words, Equation 1 imposes an m step look-ahead,4 and sen-
+sors need to compute paths of length m along which the
+most valuable measurements can be taken. At one extreme
+m = 1, sensors look ahead a single step and we obtain
+a greedy algorithm, which is likely to get stuck in local
+maxima and results in suboptimal long term behaviour. At
+m = ∞, their paths are optimal, but intractable to compute
+in any realistic setting. In light of this, in the next section,
+we present an algorithm for any value of m that computes
+high quality approximate solutions to Equation 1 by restrict-
+ing the paths over which coordination takes place.
+
+3 Decentralised Coordination
+To develop a generalised decentralised coordination algo-
+rithm for computing solutions to Equation 1, we proceed
+in three steps. First, we present a decomposition of f that
+allows for the use of the max-sum algorithm. Second, we
+present a principled way of deﬁning the action space for each
+sensor using a clustering approach. Third, we show how the
+max-sum algorithm can be applied.
+
+To decompose f , we use the concept of the incremental
+value ρy(y′) = f (y ∪ y′) − f (y′) of adding a set of mea-
+surements y to another set of measurements y′. Using this
+concept, we can decompose f into a sum of functions (as
+required by the max-sum algorithm):
+
+f (yt+1, Yt) =
+
+ρyi
+
+t+1
+
+n
+
+X
+i=1
+
+i−1
+
+[
+j=1
+
+
+
+
+
+yj
+t+1
+
+
+
+
+
+(2)
+
+Thus, f (yt+1, Yt) is a sum of the incremental values ob-
+tained by adding sensor i’s future measurements yi
+t to those
+of sensors j < i. We will refer to the individual terms
+of the sum in Equation 2 as sensor utility functions, and
+denote these as Ui. Thus, in order to calculate its utility
+Ui(y1
+t), sensor i needs to take into account where
+sensors j < i will take measurements, as well as its own.
+
+t , . . . , yi
+
+Now, in our model there exists a one to one correspon-
+dence between a location v sensor i visits and the locations
+y(v) ⊆ V at which it takes measurements. Thus, given the
+path pi = hv(1), . . . , v(m)i that sensor i takes from its cur-
+t+1, . . . , yi
+rent position, we know yi
+t+m. Thus, with slight
+abuse of notation, we can deﬁne the utility function Ui in
+terms of paths: Ui(p1, . . . , pi).
+
+It is important to note that, in this formulation, sensor i’s
+utility depends on the paths of all sensors j ≤ i. However,
+there are two reasons for ignoring or discarding the depen-
+dency on some of these sensors, and removing the corre-
+sponding variables pi as parameters from Ui:
+
+4Since the problem over (even) a ﬁnite time horizon is NP-hard,
+we reduce the computational burden by limiting the look-ahead in
+this fashion.
+
+1. In many domains, measurements made by certain sen-
+sors j < i are independent5 of i’s and therefore do
+not inﬂuence sensor i’s utility. Therefore, correctness is
+maintained by removing the corresponding variables from
+function Ui, which results in a much sparser coordination
+problem, which in turn results in less computation when
+using the max-sum algorithm.
+
+2. In certain scenarios, a limited communication range might
+cause certain pairs of sensors to be unable to communicate
+directly with each other, hindering coordination between
+them. In such cases, the corresponding variables might
+have to be discarded from the sensors’ utility functions,
+resulting in a less coordinated solution and (potentially)
+degraded team performance.
+Note that, when the communication range is sufﬁcient for
+any two sensors with dependent measurements to commu-
+nicate, the performance of our approach is unaffected. For
+ease of exposition, in the remainder of the paper, we assume
+that communication between any pair of sensors is possible
+and that none of the sensors’ measurements are independent.
+Now, the key challenge is to deﬁne over which paths the
+sensors coordinate, or more precisely: the domain of vari-
+ables pi. The reason for this is that it is computationally in-
+feasible to coordinate over all paths of length m, since this
+results in a combinatorial explosion for increasing m. This
+problem was recognised by Stranders et al. (2009), who de-
+ﬁne these domains as the paths that take the sensors in the
+8 compass directions. However, while this might work well
+on a very structured graph, such as a lattice, we will show in
+Section 5 that this leads to a degradation of performance in
+less structured graphs, because not all locations of interest
+are considered (or reachable) in this fashion.
+
+In this paper, we therefore propose a different approach to
+compute the domain of pi based clustering the neighbouring
+area of sensor i, which proceeds in three steps:
+1. Cluster the m-neighbourhood NG(v) (i.e.
+
+the subgraph
+of G induced by the vertices reachable in m steps from v)
+of the sensor’s current location v into c clusters using the
+k-means algorithm.6
+2. Within each cluster,
+reaches a maximum.
+
+identify the vertex for which f
+
+3. The domain of pi is now deﬁned as the paths leading to
+
+each of these c vertices.
+Clearly, the more clusters (the bigger c), the bigger the do-
+main of pi, and more paths need to be considered and more
+computation is necessary. However, by considering more
+(combinations of) paths the solution quality is also expected
+to improve. Thus, the parameter c can act as a trade-off be-
+tween solution quality and computation.
+
+5Two measurements y and y′ are called independent if their
+values are additive: f (y ∪ y′) = f (y) + f (y′). As a result,
+ρy(y′) = ρy(∅). Commonly, measurements taken far apart are
+independent, because the set of features that are observed are dis-
+joint.
+
+6This clustering algorithm was chosen for its simplicity and
+effectiveness. We intend to consider other algorithms for future
+work.
+
+876
+
+
+
+***page3 finished***
+
+U1
+
+p1
+
+U2
+
+p2
+
+U3
+
+p3
+
+Sensor 1
+
+Sensor 2
+
+Sensor 3
+
+Figure 1: The factor graph for three sensors.
+
+We have now transformed the problem so it is amenable
+to optimisation by the max-sum algorithm. The max-sum al-
+gorithm is a decentralised coordination algorithm based on
+message passing, and has been shown to compute good qual-
+ity approximate solutions with acceptable computation over-
+head compared to various optimal decentralised algorithms
+(Farinelli et al. 2008). Moreover, it has been empirically
+shown to scale well with the number of sensors, and be ro-
+bust against message loss and failure of individual sensors.
+In more detail, the max-sum algorithm requires the problem
+to be encoded as a factor graph, which is a bipartite graph
+in which vertices represent variables and functions, and an
+edges represent the ‘is parameter of’ relation. Hence, in our
+problem, an edge exists between vertices pi and Uj iff i ≤ j,
+such that sensor i’s utility function Ui has i variables. Figure
+1 shows the factor graph for a setting with three sensors.
+
+Now, we can use the max-sum algorithm to ﬁnd a path
+n] that maximises the value of the
+
+for each sensor [p∗
+1, . . . , p∗
+measurements collected by the team of sensors:
+
+[p∗
+
+1, . . . , p∗
+
+n] = arg max
+[p1,...,pn]
+
+n
+
+X
+i=1
+
+Ui(p1, . . . , pi)
+
+(3)
+
+This is accomplished in a decentralised fashion by passing
+messages between the functions and variables as follows:
+qi→j Message from variable pi to function Uj (i ≤ j):
+
+qi→j (pi) = αij +
+
+rk→i(pi)
+
+(4)
+
+X
+k≥i,k6=j
+
+where αij is a normalising constant chosen such that
+qi→j (pi) = 0, so as to prevents the messages from
+Ppi
+growing to the point of calculation error in cyclic factor
+graphs.
+
+rj→i Message from function Uj to variable pi (i ≤ j):
+
+rj→i(pi) = max
+pj \pi
+
+Uj(pj ) +
+
+
+
+
+
+X
+k≤j,k6=i
+
+qk→j (pk)
+
+
+(5)
+
+Here we use pj as an abbreviation for {p1, . . . , pj}. Thus,
+Uj(pj) is the utility function of sensor j.
+
+These messages are exchanged until their contents converge,
+or for a predeﬁned number of iterations if the former does
+not occur. Then, to obtain its part of the coordinated solution
+p∗
+i deﬁned in Equation 3, sensor i calculates:
+
+p∗
+i = arg max
+
+rk→i(pi)
+
+pi X
+k≥i
+
+(6)
+
+The motivation here is that this sum is an approximation to
+the marginal function of Equation 3 with respect to pi, where
+for any element e of the domain pi, this marginal function is
+equal to the maximum value Equation 3 can attain if pi = e.
+When the factor graph is acyclic, this marginal function is
+exact, and as a result, the solution computed in Equation 6 is
+guaranteed to be optimal. Otherwise, it is an approximation
+to Equation 3.
+
+In Section 5 we apply our algorithm to two challenging
+
+information gathering domains, which are discussed next.
+
+4 Two Information Gathering Domains
+We now instantiate the general model and algorithm de-
+scribed in Sections 2 and 3 for two information gathering
+domains for which no online decentralised algorithm previ-
+ously existed. In the ﬁrst, pursuit-evasion, sensors are tasked
+with capturing a moving object in graph G. In the second,
+patrolling, the sensors’ goal is to prevent intrusions on ver-
+tices of G. In both domains, observations y are binary: ei-
+ther a moving object or intrusion is detected, or it is not.
+Furthermore, we assume that sensors are capable of sensing
+all locations within a radius of rs of their position. Sensing
+is assumed to be imperfect, and is given by a probability of a
+false positive pf p and a false negative pf n detection. In the
+upcoming sections, we will derive the measurement value
+function f we deﬁned in Section 2 for both domains.
+
+4.1 Pursuit Evasion
+The pursuit evasion problem is characterised by the presence
+of a single moving object e (called an evader) that the sen-
+sors have to capture as quickly as possible. The evader e has
+a motion model M (e.g. random, stationary, etc.) that spec-
+iﬁes how it moves in graph G. Figure 2 shows an example
+of this scenario with a randomly moving evader.
+
+Now, to model their belief of the evader’s location at time
+t, denoted by et, the sensors maintain a probabilistic map
+pe(et = v|Yt−1) representing the probability that the evader
+is at location v given measurement history Yt−1. This model
+extends the work by Hespanha, Kim, and Sastry (1999) to a
+setting with an arbitrary evader (as opposed to a randomly
+moving one), or an unknown evader. Each sensor has a
+copy of this probabilistic map which is kept consistent by
+exchanging observations. At each time step t, the sensors
+take new measurements yt and obtain pe(et+1 = v|Yt) in
+two steps:
+1. Fuse measurements yt with pe(et = v|Yt−1) to obtain:
+pe(et = v|Yt) = αpe(et = v|Yt−1)p(yt|et = v, Yt−1)
+Here, α is a normalising constant, and p(yt|et = v, Yt−1)
+is computed as:
+
+p(yt|et = v, Yt−1) =
+
+p(y|et = v, Yt−1)
+
+Y
+y∈yt
+
+and p(y|et = v, Yt−1) is given by the sensing model:
+
+p(y|et = v, Yt−1) =
+
+1 − pf p
+pf p
+pf n
+1 − pf n
+
+if y(m) = T ∧ y(v) = v
+if y(m) = T ∧ y(v) 6= v
+if y(m) = F ∧ y(v) = v
+if y(m) = F ∧ y(v) 6= v
+
+877
+
+
+
+***page4 finished***
+
+(a) t = 1
+
+(b) t = 6
+
+(c) t = 13
+
+Figure 2: An example pursuit-evasion scenario in the ‘Ofﬁce’ environment. The big circles represent the sensors and the square
+represents the evader. The size of the grey circles is proportional to the value of f . The evader is captured at t = 14.
+
+2. Predict the motion of the evader. If the the evader’s mo-
+
+tion model M is known, the sensors compute:
+
+pe(et+1 = v|Yt) =
+
+X
+v′∈V
+
+pm(et+1 = v|et = v′, M )pe(et = v′|Yt)
+
+(7)
+
+Here, pm(et+1 = v|et = v′, M ) is the transition
+probability of evader type M from v to v′. Since the
+evader’s movement is restricted by G, pm(et+1 = v|et =
+v′, M ) = 0 if (v, v′) 6∈ E. If, however, the evader’s mo-
+tion model M is unknown, but it is known that M ∈
+{M1, . . . , Mn},
+the sensors compute a posterior over
+types M given observations yt:
+
+p(Mi|Yt) = αp(yt|Yt−1, Mi)P (Mi|Yt−1)
+
+(8)
+
+where p(yt|Yt−1, Mi) =
+
+p(yt|et = v, Yt−1, Mi)pe(et = v|Yt−1, Mi)
+
+(9)
+
+X
+v∈V
+
+In this case, pe(et+1 = v|Yt) is computed as:
+
+n
+
+X
+i=1
+
+pe(et+1 = v|Yt, Mi)
+
+Using the probability map obtained from this computation,
+measurement value function f is deﬁned as:
+
+f (yt+1, Yt) =
+
+pe(et+1 = y(v)|Yt)
+
+X
+y∈yt+1
+
+which is the probability of observing the evader in the next
+time step. To actually capture the evader, the sensors sus-
+pend their information gathering tasks as soon as a posi-
+tive observation is made, and move to the location where
+the evader is expected to be in the next time step.
+
+4.2 Patrolling
+In the patrolling scenario, the sensors’ goal is to prevent at-
+tacks on vertices of graph G. An attacker can start an attack
+
+on a vertex at any time (if no attacker is already present) and
+is successful if it is not captured by a sensor within k time
+steps. Each time an attack is successful, the sensors incur a
+loss of l. To model this domain, we build a Markov model
+for each vertex v with k + 1 states S = {∅, 1, . . . , k}, with
+∅ indicating no attacker is present, and 1, . . . , k representing
+that an attacker has been present for the indicated amount of
+time. Valid state transitions are:
+• ∅ → 1: an attacker appears.
+
+• i → (i + 1) for 1 ≤ i ≤ (k − 1): the attack progresses.
+• i → ∅ for 1 ≤ i ≤ k: the attack is stopped by a sensor.
+
+No loss is incurred.
+
+• k → ∅: the attack succeeds and a loss of l is incurred.
+
+Similar to the pursuit-evasion problem, the sensors maintain
+a probability map pa(sv
+t |Yt−1) representing the probability
+that a vertex v is in one of the states S at time t. To obtain
+pa(sv
+t+1|Yt) from new measurements yt the sensors follow a
+similar two step computation:
+
+1. Fuse measurements yt with pa(sv
+
+t |Yt−1) to obtain
+pa(sv
+t |Yt). For ease of exposition, assume perfect sens-
+ing (i.e. pf n = 0 and pf p = 0). Under this assumption,
+we can distinguish two cases: v is currently under attack
+(denoted by a) or it is not (denoted by ¬a). In the former
+t+1 = ∅|a) = 0. For i 6= ∅
+case, it is obvious that pa(sv
+t =i|Yt−1)
+we calculate pa(sv
+v =∅|Yt−1) . In the
+1−pa(st
+t+1 = ∅|¬a) = 1.
+latter case, we clearly have pa(sv
+Now, dropping the assumption of perfect sensing, note
+that in case of a negative observation an attacker might
+still be present with probability pf n. Thus, to obtain
+t+1|Yt), we weigh vectors pa(sv
+pa(sv
+t+1|a) by pf n and
+pa(sv
+t+1|¬a) by 1−pf n. The converse holds for a positive
+observation.
+
+t+1 = i|a) = pa(sv
+
+2. Update the probability map taking into account possible
+new attacks. If we suppose that at every time step t ∈ T
+and every v ∈ V the probability p of an attack starting
+is constant and independent, this Markov model is fully
+
+878
+
+
+
+***page5 finished***
+
+deﬁned by the probabilistic transition function:
+
+pt(sv
+
+t+1|Yt, sv
+
+t ) =
+
+1 − p if sv
+if sv
+p
+if sv
+1
+
+t+1 = ∅ and sv
+t+1 = 1 and sv
+t+1 = i and sv
+
+t = ∅
+t = ∅
+t = i − 1
+for i ≤ k − 1
+t = 1
+
+1
+0
+
+t+1 = ∅ and sv
+
+if sv
+otherwise
+
+Using this function we compute:
+
+pa(sv
+
+t+1|Yt) = pt(sv
+
+t+1|Yt, sv
+
+t )pa(sv
+
+t |Yt)
+
+After performing this computation, we can deﬁne function
+f for this domain in terms of the probability of an attack
+currently in progress at a measured location as follows:
+
+f (yt+1, Yt) =
+
+γi−kpa(sy(v)
+
+t+1 |Yt)
+
+k
+
+X
+y∈yt+1
+
+X
+i=1
+
+where γ is used to discount the loss from attacks that oc-
+cur in the future. Similar to the pursuit-evasion scenario, to
+capture an attacker, the closest sensor moves towards it.
+
+5 Empirical Evaluation
+To evaluate our algorithm, we applied it to the problem do-
+mains discussed above in two different graphs:
+
+Ofﬁce The layout of this environment is a model of our lab,
+which measures 67 by 47.5 metres. The sensing range
+rs = 9m and capture range rs = 4m. This environment
+is depicted in Figure 2. The number of sensors n = 4.
+Lattice A 25 by 25 square lattice graph measuring 100 by
+100 metres. Sensing range rs = 10m, and capture range
+rs = 4m. The number of sensors n = 5.
+
+These two types of graphs were chosen to illustrate the ef-
+fect of graph structure on the performance of our algorithm
+compared to the one proposed by Stranders et al. (2009).
+The setup for both problem domains is as follows:
+Pursuit-Evasion The type of the evader is stationary, ran-
+dom (i.e. moves to a random adjacent location) or smart
+(i.e moves away from the closest sensor), with equal prob-
+ability.
+
+Patrolling Each instance lasts for 200 time steps. New at-
+tacks appear with p = 0.0003, and last 20 time steps.7
+These values were chosen to create problem instances that
+distinguish between poor performing and well performing
+algorithms.8 For all problem instances, the key probabilities
+characterising the sensing model are pf p = pf n = 0.001.9
+For pursuit-evasion we measured the time needed by the
+
+7Since the ofﬁce environment has 350 vertices, the expected
+
+number of attacks is approximately 20.
+
+8For example, by setting the attack probability too low, all algo-
+rithms will do fairly well, while by setting it too high, all algorithms
+will exhibit roughly equal poor performance.
+
+9For a problem instance lasting for 100 time steps with 4 sen-
+sors taking approximately 15 measurements per time step, the ex-
+pected number of false positives is 6.
+
+sensors to capture the evader; for patrolling, we measured
+the total loss incurred by successful attacks, and we bench-
+marked our algorithm against the state of the art, as well as
+algorithms that provide upper (JGreedy) and lower bounds
+(GRandom) on achievable performance:
+
+(G)Greedy These are two state of the art algorithms for
+(2001) (which we will
+pursuit-evasion by Vidal et al.
+apply to both pursuit-evasion and patrolling). Greedy is
+an algorithm which moves to the adjacent location with
+the highest value in the next step, while GGreedy moves
+greedily towards the global location with highest value.
+
+JGreedy This approach instantaneously jumps to the global
+
+location with the highest value.
+
+(G)Random These are two random approaches. Random
+moves to a random location adjacent to the sensor’s cur-
+rent position. GRandom selects a random position in the
+graph and then moves along the shortest path.
+
+TSP This state of the art approach is proposed by Sak,
+Wainer, and Goldenstein (2008) and computes the short-
+est closed walk that visits all vertices (similar to the Trav-
+elling Salesman Problem10). To improve its adaptiveness
+and competitiveness, we let the sensors deviate from this
+path once an attacker is detected in order to capture it.
+
+MS-8 This is our algorithm, but instead of using clustering
+to compute the paths over which the agents coordinate, it
+uses the 8 major directions on the compass rose, as sug-
+gested in Stranders et al. (2009).
+
+MS K-M Our algorithm.
+
+For both environments, path
+
+length m = 15, and the number of clusters c = 4.11
+
+We randomly generated 200 problem instances for both
+patrolling and pursuit-evasion, and evaluated the perfor-
+mance of all algorithms on each of these instances. The re-
+sults are summarised in box-plots shown in Figures 3(a) and
+3(b), showing that our algorithm has signiﬁcantly smaller
+variance compared to GGreedy, MS-8, Greedy and TSP,
+as well as a lower median, in both patrolling and pursuit-
+evasion. To determine the quantitative performance gain of
+our algorithm, we also performed a paired Student’s t-test to
+compute 95% conﬁdence intervals on the difference in per-
+formance between our algorithm and the benchmark algo-
+rithms. Table 1 reports the lower bounds of these conﬁdence
+intervals (with the upper bound being ∞). It is clear that
+the clustering approach results in a signiﬁcant improvement
+(> 40%) over MS-8 in the ofﬁce environment, conﬁrming
+the superiority of using clustering for deﬁning the domain
+of the path variables. More importantly, our algorithm out-
+performs all benchmarks by at least 30% in the ofﬁce envi-
+ronment. Finally, for a more dynamic view of our algorithm,
+we have made videos available of several problem instances
+at www.youtube.com/user/aaai2010.
+
+10To compute the TSP cycle of the graph, we used Concorde.
+
+(http://www.tsp.gatech.edu/concorde.html).
+
+11Since both graphs have an average branching factor roughly
+equal to 4, in most cases, these clusters are reached through all
+outgoing edges.
+
+879
+
+
+
+***page6 finished***
+
+(a) Pursuit-Evasion
+
+(b) Patrolling
+
+Figure 3: Empirical performance on 200 problem instances. The band near the center of the boxes is the median of the dataset;
+the box contains data points between the 25th and 75th percentile. Whiskers are drawn at 1.5 inter-quartile range (IQR).
+
+% Improvement (95% CI)
+
+Council) strategic partnership (EP/C 548051/1).
+
+Environment
+PE Ofﬁce
+PE Lattice
+P Ofﬁce
+P Lattice
+
+Greedy
+30.5%
+26.9%
+43.7%
+32.4%
+
+GGreedy
+39.5%
+42.0%
+46.9%
+37.2%
+
+MS-8
+42.2%
+10.0%
+45.2%
+21.4%
+
+TSP
+52.2%
+47.4%
+30.0%
+26.1%
+
+Table 1: Lower bound of the 95% conﬁdence intervals of
+performance increase of MS K-M compared to the four most
+competitive benchmarks.
+
+6 Conclusions
+In this paper, we developed a decentralised coordination al-
+gorithm for mobile sensors for a wide range of informa-
+tion gathering tasks. Our algorithm generalises the one pro-
+posed by Stranders et al. (2009) to a much richer set of do-
+mains (including monitoring spatial phenomena for which
+it was originally designed) and extends it by introducing
+an adaptive clustering technique for deﬁning the paths over
+which coordination takes place. We applied our algorithm
+to pursuit-evasion (PE) and patrolling (P), and thereby ob-
+tained the ﬁrst online decentralised coordination algorithms
+for these domains. Furthermore, we benchmarked our al-
+gorithm against the state of the art and showed a signiﬁcant
+performance gain. Finally, we show that our adaptive clus-
+tering technique results in a > 40% performance increase
+compared to using a ﬁxed set of paths as proposed by Stran-
+ders et al. (2009) on a non-lattice graph. For future work,
+we intend to extend our algorithm to compute solutions with
+a guaranteed approximation ratio for any planning horizon
+in order to guarantee a level of optimality of the sensors’
+actions.
+
+Acknowledgments
+This research was undertaken as part of the ALADDIN (Au-
+tonomous Learning Agents for Decentralised Data and In-
+formation Networks) Project and is jointly funded by a BAE
+Systems and EPSRC (Engineering and Physical Research
+
+References
+Agmon, N.; Kraus, S.; and Kaminka, G. A. 2008. Multi-robot perimeter patrol in
+adversarial settings. In Proc. of ICRA, 2339–2345.
+
+Basilico, N.; Gatti, N.; and Amigoni, F. 2009. Leader-follower strategies for robotic
+patrolling in environments with arbitrary topologies. In Proc. of AAMAS, 57–64.
+
+Bopardikar, S. D.; Bullo, F.; and Hespanha, J. P. 2008. A pursuit game with range-only
+measurements. In Proc. of the 47th Conf. on Decision and Contr., 4233–4238.
+
+Borie, R.; Tovey, C.; and Koenig, S. 2009. Algorithms and complexity results for
+pursuit-evasion problems. In Proc. of IJCAI, 59–66.
+
+Farinelli, A.; Rogers, A.; Petcu, A.; and Jennings, N. R. 2008. Decentralised coor-
+dination of low-power embedded devices using the max-sum algorithm. In Proc. of
+AAMAS-08, 639–646.
+
+Halvorson, E.; Conitzer, V.; and Parr, R. 2009. Multi-step multi-sensor hider-seeker
+games. In Proc. of IJCAI, 159–166.
+
+Hespanha, J. P., and Prandini, M. 2002. Optimal pursuit under partial information. In
+Proc. of the 10th Mediterranean Conf. on Contr. and Automat., 469–479.
+
+Hespanha, J. P.; Kim, H. J.; and Sastry, S. 1999. Multiple-agent probabilistic pursuit-
+evasion games. In Proc. of the 38th Conf. on Decision and Contr., volume 3, 2432–
+2437.
+
+Krause, A.; Leskovec, J.; Guestrin, C.; VanBriesen, J.; and Faloutsos, C. 2008. Ef-
+ﬁcient sensor placement optimization for securing large water distribution networks.
+Journal of Water Resources Planning and Management 134(6):516–526.
+
+Meliou, A.; Krause, A.; Guestrin, C.; and Hellerstein, J. M. 2007. Nonmyopic infor-
+mative path planning in spatio-temporal models. In Proceedings of the Twenty-Second
+Conference on Artiﬁcial Intelligence, 602–607.
+
+Parsons, T. 1976. Pursuit-evasion in a graph. Theory and Application of Graphs Y.
+Alani and D. R. Lick, eds.:426–441.
+
+Paruchuri, P.; Pearce, J.; Tambe, M.; Ordonez, F.; and Kraus, S. 2007. An efﬁcient
+heuristic approach for security against multiple adversaries. In Proc. of AAMAS, 1–8.
+
+Sak, T.; Wainer, J.; and Goldenstein, S. K. 2008. Probabilistic multiagent patrolling.
+In Proc. of SBIA, 124–133.
+
+Singh, A.; Krause, A.; and Kaiser, W. J. 2009. Nonmyopic adaptive informative path
+planning for multiple robots. In Boutilier, C., ed., IJCAI, 1843–1850.
+
+Stranders, R.; Farinelli, A.; Rogers, A.; and Jennings, N. 2009. Decentralised coor-
+dination of mobile sensors using the max-sum algorithm. In Proc 21st Int. Joint Conf
+on AI (IJCAI), 299–304.
+
+Vidal, R.; Rashid, S.; Sharp, C.; Jin, S.; and Sastry, S. 2001. Pursuit-evasion games
+with unmanned ground and aerial vehicles. In in Proc. of IEEE ICRA, 2948–2955.
+
+880
+
+
+
+***page7 finished***
+

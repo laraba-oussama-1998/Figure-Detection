@@ -1,0 +1,941 @@
+Adopting Inference Networks for Online Thread Retrieval
+
+Sumit Bhatia∗ and Prasenjit Mitra∗†
+∗Computer Science and Engineering
+†Information Sciences and Technology
+The Pennsylvania State University, University Park, PA–16802, USA
+sumit@cse.psu.edu, pmitra@ist.psu.edu
+
+Abstract
+
+Online forums contain valuable human-generated informa-
+tion. End-users looking for information would like to ﬁnd
+only those threads in forums where relevant information is
+present. Due to the distinctive characteristics of forum pages
+from generic web pages, special techniques are required to
+organize and search for information in these forums. Threads
+and pages in forums are different from other webpages in
+their hyperlinking patterns. Forum posts also have associated
+social and non-textual metadata. In this paper, we propose a
+model for online thread retrieval based on inference networks
+that utilizes the structural properties of forum threads. We
+also investigate the effects of incorporating various relevance
+indicators in our model. We empirically show the effective-
+ness of our proposed model using real-world data.
+
+1 Introduction
+Online forums offer an interactive platform for information
+seeking and have become quite popular. They have enabled
+users to discuss and exchange ideas with one another with-
+out any restriction of geographical boundaries. There are
+thousands of online forums devoted to a broad range of top-
+ics. Often these forums have an active community of users
+helping each other and taking part in discussions. The con-
+tent is thus being continuously generated “by the Users, for
+the Users”. As an example, consider the online forum of
+Ubuntu – a popular Linux distribution, that boasts a com-
+munity of more than 1 million users and more than 1.25
+million threads1. Suppose a user is facing trouble installing
+sound drivers on his desktop. He can post a question in the
+forum describing his problem and other users then post so-
+lutions to the problem. Previous work has focused on this
+aspect of online forums and leveraged it for question an-
+swering purposes (Bian et al. 2008; Cong et al. 2008;
+Hong and Davison 2009).
+
+However, online forums are not just limited to factual
+questions and answers. Oftentimes, the questions which
+users ask in a forum do not have a precise answer. As an
+example, consider a person who is planning to buy an MP3
+player but is not sure which brand to purchase. He posts
+his question in a forum related to electronic devices and gets
+
+Copyright c(cid:13) 2010, Association for the Advancement of Artiﬁcial
+Intelligence (www.aaai.org). All rights reserved.
+
+1http://www.ubuntuforums.org/ as of 20th January, 2010
+
+opinions of other users. Contrast this case with the ﬁrst ex-
+ample. There was a ﬁxed procedure for installing sound
+drivers, but there is no ﬁxed answer to the brand of MP3
+players one can purchase. The user here might have certain
+requirements and might be looking for certain features. He
+seeks other users’ views, opinions and experiences to deter-
+mine a suitable MP3 player for himself.
+
+The above example illustrates another distinctive feature
+of online forums – discussions. In forums, people discuss
+and share their opinions about various topics, news, events
+as well as about pros and cons of various products, movies,
+sports etc. Past discussions result in a tremendous volume
+of data getting stored in forum archives.
+In that case, a
+vertical search engine can help the user search for past dis-
+cussions/solutions without having to post his problem and
+wait for replies from other users. Such kinds of information
+needs are hard to satisfy by question answering systems and
+motivate the need for developing techniques to efﬁciently
+manage and search the huge amount of information that the
+online forums provide.
+
+Searching online forums however, requires special tech-
+niques. Current search techniques are not optimized for web
+forums. One major assumption for generic web search is
+that each individual web page is a self-contained document.
+However, this assumption does not hold for forum search.
+When a user starts a topic by posing a question or initiat-
+ing a discussion, the replies of other users are arranged in a
+thread-like structure. If the discussion is long, a thread may
+stretch over more than one webpage and possibly over tens
+of webpages. As an example, consider a thread which runs
+over two pages. The thread starter has asked a question and
+different users are posting answers to the question. Suppose
+the correct answer to the question is present on the second
+webpage. If we present only this page to the user then the
+whole context of discussion, which might be extremely im-
+portant, is lost. Moreover, using only a single page (either
+ﬁrst or second) to determine relevance to a user query fails
+to utilize the information present in other pages. Thus for fo-
+rum search, the appropriate unit to use to compute relevance
+is the whole discussion thread.
+
+Another important difference between generic web pages
+and forum pages is that forums have a unique structure. A
+forum is composed of multiple threads and threads have
+multiple posts. Threads have titles and in some forums, indi-
+
+1300Proceedings of the Twenty-Fourth AAAI Conference on Artificial Intelligence (AAAI-10)
+
+
+
+***page1 finished***
+
+vidual posts can have titles. Posts also have authors associ-
+ated with them. Utilizing this structure and associated meta-
+data can provide a better search functionality than that en-
+abled by using only the textual content of the forum threads.
+Wilkinson (1994) has shown that utilizing structure of
+documents helps improve retrieval performance. However,
+as discussed in next section, most of the present approaches
+for forum search have ignored this aspect. In addition, forum
+pages also have certain unique characteristics that help in in-
+dicating the usefulness/relevance of a given thread. Further,
+different forums may have different characteristics and dif-
+ferent queries may require different strategies to identify rel-
+evant threads. Identifying how much to weigh each individ-
+ual piece of information (e.g., title, authority of poster, etc.)
+and how to vary the weights for different types of forums
+and queries is a challenging problem. In this work, we fo-
+cus on the former sub-problem, the latter problem being the
+focus of future work. The formalism of Bayesian Networks
+affords a powerful and theoretically sound framework to uti-
+lize and combine multiple evidences for document ranking.
+We employ Inference Networks to efﬁciently combine ev-
+idences from different structural units of forum threads as
+well as for incorporating various prior evidences while com-
+puting document relevance probabilities. Our model utilizes
+multiple attributes like the initial post and the replies, the
+length of the posts, an authority measure of the posters and
+the links between posts in a uniﬁed inference network based
+framework to rank threads in response to user queries.
+
+2 Related Work
+As identiﬁed by Xu and Ma (2006), as much as 75% of the
+links on a typical forum page points to noise pages like user
+proﬁles, login pages etc. and are not actually recommen-
+dations. Hence, link based algorithms like PageRank and
+HITS can not be used effectively. They build topic hierar-
+chies and combine the links induced by content similarity
+with the document link graph for ranking of forum pages.
+However, it is difﬁcult to categorize the large number of on-
+line forums with a single topic hierarchy. Chen et al. (2008)
+propose a ranking algorithm called Posting Rank to rank fo-
+rum posts. Their approach is based on the assumption that
+users participating in common threads tend to share common
+interests and such threads are topically related to each other.
+However, this assumption might not be true in all the cases.
+It is fairly common for a single user to have varied inter-
+ests and participate in threads on different topics. In both
+the above works, the unit of retrieval is individual forum
+pages. However, discussions in web forums are organized
+into threads which usually span many web pages. Hence,
+retrieval at individual page level ignores the context of dis-
+cussions going on in the thread and might not be able to cap-
+ture the relevance to user’s information needs completely.
+Elsas et al. (2009) are among the ﬁrst to review strategies
+for thread retrieval on a test collection of 48 <query, rele-
+vant document> pairs. Seo et al., (2009) describe how the
+reply structures in forum threads can be recovered and uti-
+lized for thread and post level retrieval. Our work on the
+other hand utilizes inference networks for evidence combi-
+nation and in addition, also explores the effect of incorporat-
+
+Figure 1: Inference Network Model for Forums
+
+ing various non textual relevance indicators that may help in
+an improved ranking of returned results.
+
+3 Problem Formulation
+We deﬁne a post as the smallest unit of communication in
+online forums that consists of content posted by a user. Each
+post has associated meta-data such as user ID of the user
+posting the post, time of posting the post etc. InitPost I is the
+initiating post of a thread which is the ﬁrst post in the thread
+and initiates discussions. All other posts in a thread are the
+ReplyPosts posted by users participating in the discussion
+started by the initPost I. A thread can now be deﬁned as a
+triple T =< t, I, R >, where t is the title of the thread, I is
+the InitPost and R is the set of reply posts. Note that R can
+be empty in case no user has replied to the InitPost. Given
+a user query Q, our task is to return a ranked list of threads
+L = T1, T2, . . . , Tn to the user such that for all 1 ≤ i, j ≤ n
+and i < j, rel(Ti, Q) ≥ rel(Tj, Q), where rel(T, Q) is an
+appropriate measure of relevance of thread T to query Q.
+We assume that each thread T deals with a single topic of
+discussion.
+
+4
+
+Inference Network for Web Forums
+
+As described by Turtle and Croft (1991), the information
+retrieval problem can be considered as an inference prob-
+lem where given the event that a document D is observed,
+one infers the probability that the user’s information need is
+satisﬁed by the document. Metzler and Croft (2004) have
+shown how language models and inference networks can be
+combined together for information retrieval purposes. Our
+implementation also uses the INDRI2 toolkit developed by
+them.
+
+The proposed retrieval model for web forum search is de-
+scribed in Figure 1. The leaf node I is the information need
+node and represents the event that the user has the need for
+
+2http://www.lemurproject.org/indri/
+
+1301
+
+
+
+***page2 finished***
+
+information I. The root node T is the thread node and rep-
+resents the event that the thread T has been observed. Note
+that in the actual network there is one such thread node for
+each thread in the collection. We show only one thread node
+for the sake of clarity. We want to estimate the probability
+P (T |I) that the thread T satisﬁes the information need I.
+Using Bayes rule, we get:
+
+P (T |I)
+
+= P (T ).P (I|T )
+
+rank
+
+(1)
+
+Here rank
+
+= indicates that the L.H.S and R.H.S have the
+same rank ordering. P (T ) is the prior probability that thread
+T is relevant for the information need I. The second term
+represents the probability P (I|T )that the user’s information
+need I is satisﬁed by the thread T . The information need
+I is represented by the user in terms of the query Q con-
+sisting of n query terms Q1, Q2, . . . Qn. This is represented
+by query term nodes Q1, Q2, . . . , Qn in Figure 1. Using the
+independence assumption for query terms, we get:
+
+P (T |I)
+
+rank
+= P (T )
+
+P (Qi|T )
+
+(2)
+
+n
+
+i=1
+
+Here P (Qi|T ) represents the likelihood that the query
+term Qi is generated by the thread T. We use the thread struc-
+ture in order to utilize these query term likelihoods. After
+the thread node, we use separate nodes, S1, S2, . . . , Sm to
+represent each of the m structural components of the thread.
+As described above, a typical forum thread consists of three
+structural elements namely title, InitPost and R, the set of
+reply posts and we have a S node for each of these three
+structural units. Also note that there might be some reply
+posts in longer threads that causes the topic of discussion
+to change (topic drift). There might also be some noisy
+posts that provide redundant or no new information. The S
+node corresponding to reply posts can be replaced by three
+separate nodes representing off topic posts, noisy posts and
+posts related to the original topic of discussion. Such a post
+level analysis and thread segmentation is out of the scope of
+present work and it is assumed that each thread deals with a
+single topic of discussion.
+
+We estimate P (Qi|T ) in terms of P (Qi|SjT ), i.e., the
+likelihood that the query term is generated by the jth struc-
+tural component SjT of thread T . Using the total probability
+rule, above equation yields:
+
+P (T |I)
+
+rank
+= P (T )
+
+αj P (Qi|SjT )
+
+(3)
+
+n
+
+m
+
+i=1
+
+j=1
+
+where αj determines the weight given to component j and
+Pm
+
+j=1 αj = 1.
+The above equation is used as the ranking function in our
+model. Given an information need I represented by a query
+Q, we compute P (T |I) for each thread in the collection and
+rank them in decreasing order of P (T |I) values. The α pa-
+rameters control the weightage given to each structural com-
+ponent and can be determined experimentally as explained
+in Section 6.
+
+In order to estimate the likelihoods P (Qi|Sj,T ) we use
+the standard language modeling approach in information re-
+trieval (Ponte and Croft 1998) with Dirichlet Smoothing as
+follows:
+
+P (Qi|SjT ) =
+
+(4)
+
+fQi,jT + µ
+
+fQi,jC
+|j|
+
+|jT | + µ
+
+Here,
+fQi,jT = frequency of term Qi in jth structural component
+of thread T ,
+fQi,jC = frequency of term Qi in jth structural component
+of all the threads in the collection C.
+|jT | is the length of jth structural component of thread T ,
+|j| is the total length of jth structural component of all the
+threads in the collection C,
+µ is the Dirichlet smoothing parameter. In this paper we set
+µ to be equal to 2000, a value that has been found to perform
+well empirically (Zhai and Lafferty 2001).
+
+5 Utilizing Prior Evidences
+Online forums contain various important indicators of qual-
+ity or usefulness of a particular thread which are not cap-
+tured by the likelihood measures. Most of such indicators
+are query independent and hence, provide an a priori esti-
+mate of a thread’s usefulness. In this section, we describe
+three such measures.
+
+5.1 Length of Thread
+In general, document length is a useful measure of doc-
+ument content. Likewise, for a given query we expect
+longer threads to provide more information to the user than
+a smaller thread. We deﬁne the length of a thread to be
+the number of replies in the thread instead of the number
+of words as is normally the case when measuring document
+lengths. This is because a larger number of posts indicate
+more participation as well as more user generated content.
+Number of replies in a thread is thus a measure of “popu-
+larity” as well as “usefulness” of the thread. We also note
+that this observation may not always be true. Sometimes, a
+thread with only one reply might provide all the relevant in-
+formation whereas a very long thread may fail to do so. We
+do not consider the effect of such exceptional cases for the
+time being. We model the thread prior based on the number
+of reply posts as follows:
+
+P (T |len) = λlength|R(T )|
+
+(5)
+
+where, λlength is a normalizing constant not useful for ranking,
+R(T ) is the set of reply posts in thread T .
+
+5.2 User Authority
+In a web forum, both novice users as well as expert or ad-
+vanced users participate. Generally, novice users ask ques-
+tions and advanced users provide solutions to their prob-
+lems. Similarly, in discussion forums/review forums, views
+and opinions of expert users are more important than that of
+novice users.
+
+Figure 2 illustrates the behavior of novice and expert users
+as observed from one of the datasets used in this paper3.
+
+3Due to space constraints, we show the ﬁgure for only one of the
+
+1302
+
+
+
+***page3 finished***
+
+5.3 Link Information
+Oftentimes, users provide links to related threads in an on-
+going discussion. Such links to other threads provide certain
+evidence that the linked-to thread contains some useful rel-
+evant information with respect to the ongoing discussions
+or contains a solution to the problem asked in the current
+thread. In order to utilize these link-based evidences, we de-
+ﬁne the Forum Graph F (T , E) where node set T consists of
+all the threads in the collection, each thread being a node in
+the graph and E is the edge set consisting of directed edges.
+An edge (T ′, T ) exists iff there is a post p in thread T ′ that
+links to thread T . The weight of the edge (T ′, T ) is A(up),
+i.e., the authority of user posting the post p. Thus, recom-
+mendations provided by an expert user are considered more
+important. This phenomenon is illustrated in Figure 3. By
+constructing the forum graph in this way, we can compute
+a simple Link Score for thread T (which is then used as an
+estimate of its prior probability) as follows:
+
+L(T ) =
+
+weight(T ′, T )
+
+T ′:T ′→T
+
+which yields
+
+P (T |L(T )) = λlinkL(T ),
+
+(9)
+
+(10)
+
+λlink being the normalizing constant.
+
+Note that the above deﬁnition of forum graph allows mul-
+tiple edges between T ′ and T in case more than one user in
+T ′ links to T . However in the datasets used in this paper, we
+did not ﬁnd any such case.
+
+Figure 3: Presence of user provided evidence based links in
+forum threads.
+
+6 Experiments and Results
+
+6.1 Data Description
+In order to evaluate the proposed models we used threads
+crawled from the following two online forums:
+
+1. Ubuntu Forums: Ofﬁcial forum of the Ubuntu Linux dis-
+
+2. TripAdvisor – NewYork: Popular forum for travel related
+
+tribution4
+
+discussions5.
+
+the crawled web-pages were pre-
+For each forum, all
+processed and all the pages belonging to the same thread
+were identiﬁed and processed to identify different structural
+
+4http://ubuntuforums.org
+5http://www.tripadvisor.com/ShowForum-g28953-i4-
+
+Figure 2: Plot showing user posting behavior
+
+Each user is represented by a point on the scatter plot with
+total number of posts by a user on X axis and fraction of
+those posts which were initPosts on Y axis. It is clear from
+the ﬁgure that a majority of users has a smaller number of
+total posts and a higher fraction of initPosts, a behavior typi-
+cal of an information seeker. On the other hand, there is also
+a small clique of users with a large number of total posts
+and almost no initPosts. These are the users that act as in-
+formation providers. Hence, postings made by a user are an
+indication of his “authority” and as such content provided
+by such “authoritative” users is more important.
+We deﬁne the authority A(u) of user u as:
+
+A(u) = λauth
+
+Np(u) − Nip(u)
+Np
+
++
+
+1
+Nu
+
+(6)
+
+where,
+
+Np(u) is the total number of posts by user u,
+Nip(u) is the total number of initPosts by user u,
+Np is the total number of posts in the collection,
+Nu is the total number of users and
+λauth is a normalizing constant.
+
+In the above equation, the ﬁrst term inside the bracket
+measures the contribution of the user to all the replies in the
+collection. As already explained, information provider con-
+tributes more than an information seeker. The second term
+acts as a smoothing parameter and assigns a uniform default
+authority to each user in the collection. Using A(u), a sim-
+ple measure of authority of a thread A(T ) can be deﬁned
+as:
+
+A(T ) =
+
+A(upT )
+
+(7)
+
+1
+|T |
+
+|T |
+
+p=1
+
+Here, |T | is the number of posts in thread T and A(upT ) is
+the authority of the user posting the post p in T . This def-
+inition measures authority per user in thread T . Therefore,
+discussions in which more authoritative or expert users par-
+ticipate are given a higher weight because we expect content
+generated by such users to be of high quality. Once we have
+A(T), we can use it to model the prior probability as:
+
+P (T |A(T )) = λauthorityA(T )
+
+(8)
+
+Again, λauthority is a normalizing constant, not useful for
+ranking.
+
+datasets(Ubuntu). Similar behavior was observed for the second
+dataset used in this work.
+
+New York.html
+
+1303
+
+
+
+***page4 finished***
+
+units and their associated metadata (title, posts, user IDs
+etc.). Stemming was performed using Porter’s stemmer and
+stop words were removed using a general stop word list of
+429 words used in the Onix Test Retrieval Toolkit6. Table 1
+summarizes various descriptive statistics of the two datasets.
+
+Total No. of Threads
+Total No. of Users
+Total No. of Posts
+Average Thread Length (in
+no. of posts)
+Total No. of interlinks
+
+Ubuntu
+113277
+103280
+676777
+
+5.98
+
+2899
+
+TripAdvisor
+83072
+39454
+590021
+
+7.10
+
+4589
+
+Table 1: Summary statistics of different datasets used. In-
+terlinks refer to the number of interthread links with in a
+dataset.
+
+6.2 Experimental Protocol
+Since the relevance judgments were not available for the two
+datasets used, we took help of two human annotators to cre-
+ate relevance judgment pools for the two collections. We
+assigned ternary relevance judgments to each thread for a
+given query – 0 for totally irrelevant threads, 1 for partially
+relevant and 2 for highly relevant threads. The search page
+of ubuntu forums provides a list of 70 most searched for
+terms which were used to generate queries for our experi-
+ments. Similarly, tripadvisor forum provides a list of most
+frequently searched for topics. The queries for this dataset
+were generated by extracting keywords from the frequently
+searched for topics. In total, we generated 25 queries for
+each dataset. Some example queries for each dataset are
+listed in Table 2. For each query, all the threads returned by
+various methods were then assigned relevance judgements
+scores. In all, relevance judgments were assigned for 4512
+threads in the Ubuntu dataset and 4478 threads in the Tri-
+pAdvisor dataset. In order to compare the performance of
+various retrieval methods, we report Mean Reciprocal Rank
+(MRR), Precision @ 10, NDCG @ 10 and Mean Average
+Precision (MAP).
+
+6.3 How Structure Helps?
+Our ﬁrst set of experiments aims at ﬁnding the relative im-
+portance of each individual structural component in the re-
+trieval process. We also investigate if utilizing and combin-
+ing evidence from different structural components help in
+improving retrieval performance.
+
+In order to investigate these issues, we ﬁrst chose a model
+constructed from the whole thread as our baseline (who-
+leThread). This model does not differentiate between dif-
+ferent structural components of a thread and is obtained by
+building a standard language model for each thread using
+equation (4). Next, we tested retrieval models that utilize
+information only from one of the structural components of
+a forum thread. As described above in section 3, we can
+
+6http://www.lextek.com/manuals/onix/stopwords1.html
+
+Dataset
+
+Ubuntu
+
+TripAdvisor
+
+Example Queries
+mount ntfs partition ubuntu
+ﬁrefox ﬂash no sound
+how to get to statue of liberty
+safety in manhattan
+
+Table 2: Some example queries used in the experiments.
+
+Method
+
+MRR
+
+P@10 NDCG@10 MAP
+
+wholeThread
+T
+I
+R
+T+I+R (.75,.1,.15)
+
+wholeThread
+T
+I
+R
+T+I+R (.6,.2,.2)
+
+Ubuntu Dataset
+
+0.2920
+0.0920
+0.1240
+0.2480
+0.3360
+
+0.6357
+0.2000
+0.3518
+0.5091
+0.6580
+TripAdvisor Dataset
+0.6445
+0.2524
+0.2687
+0.6478
+0.7351
+
+0.4880
+0.0720
+0.0840
+0.3920
+0.5000
+
+0.6143
+0.2445
+0.4088
+0.5624
+0.6308
+
+0.6457
+0.2885
+0.3369
+0.6655
+0.6882
+
+0.5115
+0.1683
+0.3190
+0.4467
+0.5397
+
+0.5865
+0.2317
+0.2630
+0.5664
+0.6326
+
+Table 3: Impact of different structural components and their
+combinations on retrieval performance on the two datasets.
+For the T+I+R model, numbers in brackets denote the opti-
+mal α values for the respective components.
+
+assign differential weights to evidence from different com-
+ponents by choosing suitable values for the corresponding
+α parameter of each component. Therefore in order to have
+a model based on only one structural unit, we set the α pa-
+rameter for that component equal to 1. α parameters for
+all other components are set to 0. This gives us three base-
+line retrieval models, one each for Title(T ), initPost(I) and
+replyPosts(R). Next, in order to have models that combine
+evidence from different components, we need to ﬁnd suit-
+able α values for each component. We varied the weights
+given to each structural component in intervals of 0.05 with
+the constraint of equation (3) that the sum of weights is equal
+to one (α1 + α2 + α3 = 1). Since the end-users of a search
+engine want the relevant results in top few documents, the
+parameters were selected using ﬁve folds cross validations
+to optimize the Precision @ 10 metric. The experimental
+results are summarized in Table 3. The results reported are
+averaged over 5 folds.
+
+Comparing the three single structure models (T , I and
+R), we ﬁnd that the model based on the Reply Posts out-
+performs the other two models across all evaluation metrics
+for both the datasets. This behavior is expected because the
+replies constitute the major portion of a thread. An interest-
+ing observation that can be made is that the performance of
+title model is worst among the three structural components.
+Many of the online forums, including the one used in this
+work (Ubuntu Dataset), offer facilities to search for threads
+using title only. The basic intuition behind such an approach
+is that one expects the thread starters to give meaningful ti-
+tles to their threads in order to get suitable replies from other
+users. But as our results show, this strategy is suboptimal.
+This is because many times the title fails to capture the com-
+
+1304
+
+
+
+***page5 finished***
+
+NDCG@10 MAP
+
+Method
+
+T+I+R
+Length (L)
+Authority (A)
+Link (Li)
+L+A+Li
+
+T+I+R
+Length (L)
+Authority (A)
+Link (Li)
+L+A+Li
+
+MRR
+
+0.6580
+0.7333
+0.6941
+0.7567
+0.6020
+
+P@10
+Ubuntu Dataset
+0.3360
+0.4560
+0.4560
+0.4680
+0.4200
+TripAdvisor Dataset
+0.5000
+0.5240
+0.5520
+0.5840
+0.5240
+
+0.7351
+0.7140
+0.7144
+0.8067
+0.6957
+
+0.6308
+0.7363
+0.6935
+0.7430
+0.6688
+
+0.6882
+0.7162
+0.7277
+0.7382
+0.6864
+
+0.5397
+0.6247
+0.5931
+0.6622
+0.5177
+
+0.6326
+0.6487
+0.6730
+0.6877
+0.6205
+
+Table 4: Effect of incorporating various priors information
+indicators.
+
+plete information about the thread due to its short length.
+Also, often the topic of discussion deviates from the original
+topic as the thread progresses. We also observed many titles
+in our dataset that did not convey any useful information
+about the thread (eg. “save me, computer not working”).
+These factors collectively result in a comparatively poor per-
+formance of the title as well as the initial post model. The
+real strength of our approach is illustrated by the retrieval
+model with optimized weight parameters that conclusively
+outperforms all other models across all the evaluation met-
+rics. We achieve higher precision as well as higher MRR
+and NDCG values that means that not only we are getting
+more relevant results, we are getting them at lower ranks (or
+higher up in the returned results) which is expected of any
+practical information retrieval system. These results con-
+ﬁrm our hypothesis that utilizing structure of forum threads
+helps improve the retrieval performance and maximum gains
+are achieved when we utilize information from all structural
+components.
+
+6.4 Effect of Incorporating Priors
+In this section we study the effect of incorporating various
+prior evidences that indicate the relevance of a thread. We
+have described three such measures - length of the thread,
+user authority and link information. These measures can be
+incorporated as prior probability P (T ) in equation 3. We use
+the optimized model from previous section as a baseline and
+study the effect of adding priors to this model. The results
+are summarized in Table 4.
+
+One general observation is that by incorporating each of
+the three priors individually, the resulting models outper-
+form the ﬁne-tuned baseline model across all the evaluation
+metrics. Incorporation of length prior results in the inclu-
+sion of documents containing more discussions about a topic
+and thus has a higher chance of being relevant. The author-
+ity prior assigns higher weights to documents that contain
+content posted by experienced users which is generally, of
+high quality. Further, the performance of the link prior is
+best among all the models across all the evaluation metrics.
+This is because the link prior captures the intra-forum rela-
+tionships and utilizes the evidences provided by the forum
+users about the usefulness and relevance of forum threads.
+
+Further, evidences provided by expert users are considered
+more important than those provided by novice users.
+
+One counter-intuitive result that we obtain is that when
+we combine all the three priors, the performance deterio-
+rates. The combined model underperforms the models that
+utilize only a single prior. This indicates that for some of the
+queries, gains achieved by using a single prior are lost when
+we add additional prior information. Thus identifying what
+priors are useful for what types of queries is necessary and
+will be a part of future study.
+
+7 Conclusions and Future Work
+In this paper we discussed how the problem of search in on-
+line forums is different from generic web search and pro-
+posed an inference network based retrieval model to utilize
+the rich structure of forum threads. Experiments with a base-
+line retrieval model showed that utilizing structural informa-
+tion of forum threads helped improve retrieval performance.
+It was shown that incorporating various non-textual sources
+of information helps in boosting the ranking of search re-
+sults. Our future work will focus on identifying topic drifts
+in longer threads and summarization of discussions in forum
+threads.
+
+8 Acknowledgements
+This material is based upon work supported by the Na-
+tional Science Foundation under Grant Nos. 0535656 and
+0845487. Any opinions, ﬁndings, and conclusions or rec-
+ommendations expressed in this material are those of the
+author(s) and do not necessarily reﬂect the views of the Na-
+tional Science Foundation. We would like to thank Sunil
+Viraj Jain for his help in conducting the experiments.
+
+References
+Bian, J.; Liu, Y.; Agichtein, E.; and Zha, H. 2008. Finding the right facts in the crowd:
+factoid question answering over social media. In WWW ’08, 467–476.
+
+Chen, Z.; Zhang, L.; and Wang, W. 2008. Postingrank: Bringing order to web forum
+postings. In AIRS 2008, volume 4993, 377–384.
+
+Cong, G.; Wang, L.; Lin, C.-Y.; Song, Y.-I.; and Sun, Y. 2008. Finding question-
+answer pairs from online forums. In SIGIR 2008, 467–474.
+
+Elsas, J. L., and Carbonell, J. G. 2009. It pays to be picky: an evaluation of thread
+retrieval in online forums. In SIGIR ’09, 714–715.
+
+Hong, L., and Davison, B. D. 2009. A classiﬁcation-based approach to question
+answering in discussion boards. In SIGIR ’09, 171–178.
+
+Metzler, D., and Croft, W. B. 2004. Combining the language model and inference
+network approaches to retrieval. Inf. Process. Manage. 40(5):735–750.
+
+Ponte, J. M., and Croft, W. B. 1998. A language modeling approach to information
+retrieval. In SIGIR 1998, 275–281.
+
+Seo, J.; Croft, W. B.; and Smith, D. A. 2009. Online community search using thread
+structure. In CIKM 2009, 1907–1910.
+
+Turtle, H., and Croft, W. B. 1991. Evaluation of an inference network-based retrieval
+model. ACM Transactions on Information Systems 9(3):187–222.
+
+Wilkinson, R. 1994. Effective retrieval of structured documents.
+311–317.
+
+In SIGIR 1994,
+
+Xu, G., and Ma, W.-Y. 2006. Building implicit links from content for forum search.
+In SIGIR 2006, 300–307.
+
+Zhai, C., and Lafferty, J. 2001. A study of smoothing methods for language models
+applied to ad hoc information retrieval. In SIGIR 2001, 334–342.
+
+1305
+
+
+
+***page6 finished***
+
